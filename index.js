@@ -1,13 +1,13 @@
 "use strict";
 
-const request = require("request");
+const request = require("axios");
 const EventEmitter = require("events").EventEmitter;
 
 
 class Bot {
   constructor(token) {
     this.token = token;
-    this.url = "https://api.telegram.org/bot" + token + "/";
+    this.url = `https://api.telegram.org/bot${token}/`;
     this.data = {};
     this._emitter = new EventEmitter();
     
@@ -25,26 +25,27 @@ class Bot {
     if (this._types[type]) {
       this._types[type](body);
     } else {
-      console.log("Bot Api Error. There is no that message handler:", type);
+      console.log("Bot Api Error. There is no this message handler:", type);
     }
   }
   
   sendMessage(text, id, params) {
     return new Promise((resolve, reject) => {
       params = params || {};
-      params.encode === undefined && params.encode !== false ? params.encode = true : params.encode = false;
       
-      request.post(this.URL + "sendMessage?chat_id=" + id + "&text=" +
-        (params.encode ? encodeURI(text) : text) +
+      request.post(this.url + "sendMessage?chat_id=" + id + "&text=" +
+        (params.encode === false ? text : encodeURI(text)) +
         (params.parse_mode ? "&parse_mode=" + params.parse_mode : "") +
-        (params.disable_web_page_preview === true? "&disable_web_page_preview=true" : "") +
+        (params.disable_web_page_preview ? "&disable_web_page_preview=true" : "") +
         (params.reply_to_message_id ? "&reply_to_message_id=" + params.reply_to_message_id : "") +
-        (params.reply_markup ? "&reply_markup=" + JSON.stringify(params.reply_markup) : ""), (err, res, body) => {
-          if (err) return reject(err);
-          if (res.statusCode > 400) return reject(res);
-          
-          resolve(JSON.parse(body));
-      });
+        (params.reply_markup ? "&reply_markup=" + JSON.stringify(params.reply_markup) : ""))
+          .then(res => {
+            resolve(res.data);
+          })
+          .catch(err => {
+            reject(err.data);
+          });
+        
     });
   }
   
@@ -53,7 +54,8 @@ class Bot {
   }
   
   _messageHandler(body) {
-    let type = Object.keys(body.message)[4];
+    let length = Object.keys(body.message).length;
+    let type = Object.keys(body.message)[length - 1];
     
     if (this._emitter.emit(type, body.message)) {
       this._logMessage(body.message);
@@ -71,17 +73,18 @@ class Bot {
   }
   
   _getMe() {
-    request(this.url + "getMe", (err, res, body) => {
-      if (!err && res.statusCode === 200) {
-        this.data = JSON.parse(body).result;
-      } else {
+    request(this.url + "getMe")
+      .then(res => {
+        this.data = res.data.result;
+      })
+      .catch(err => {
         throw new Error(err);
-      }
-    });
+      });
   }
   
   _logMessage(message) {
-    let type = Object.keys(message)[4];
+    let length = Object.keys(message).length;
+    let type = Object.keys(message)[length - 1];
     
     console.log(`(${new Date().toUTCString()}) => ${this.data.first_name}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): ${message[type]}`);
   }
