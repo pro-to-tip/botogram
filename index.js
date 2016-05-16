@@ -16,7 +16,13 @@ class Bot {
       callback_query: body => this._callbackQueryHandler(body)
     };
     
-    this._getMe();
+    this.getMe()
+      .then(res => {
+        this.data = res;
+      })
+      .catch(err => {
+        throw new Error(err);
+      });
   }
   
   listen(body) {
@@ -27,6 +33,18 @@ class Bot {
     } else {
       console.log("Botogram Error. There is no this message handler:", type);
     }
+  }
+  
+  getMe() {
+    return new Promise((resolve, reject) => {
+      request(this.url + "getMe")
+        .then(res => {
+          resolve(res.data.result);
+        })
+        .catch(err => {
+          reject(err.data);
+        });
+    });
   }
   
   sendMessage(text, id, params) {
@@ -70,16 +88,6 @@ class Bot {
     } else {
       console.log(`${this.data.first_name}'s callback_query listener is not defined.`);
     }
-  }
-  
-  _getMe() {
-    request(this.url + "getMe")
-      .then(res => {
-        this.data = res.data.result;
-      })
-      .catch(err => {
-        throw new Error(err);
-      });
   }
   
   _logMessage(message) {
