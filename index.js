@@ -25,7 +25,7 @@ class Bot {
     if (this._types[type]) {
       this._types[type](body);
     } else {
-      console.log("Bot Api Error. There is no this message handler:", type);
+      console.log("Botogram Error. There is no this message handler:", type);
     }
   }
   
@@ -60,7 +60,7 @@ class Bot {
     if (this._emitter.emit(type, body.message)) {
       this._logMessage(body.message);
     } else {
-      console.log(`Bot's on${type} listener is not defined.`);
+      console.log(`${this.data.first_name}'s on${type} listener is not defined.`);
     }
   }
   
@@ -68,7 +68,7 @@ class Bot {
     if (this._emitter.emit("callback_query", body.callback_query)) {
       this._logMessage(body.callback_query);
     } else {
-      console.log("Bot's callback_query listener is not defined.");
+      console.log(`${this.data.first_name}'s callback_query listener is not defined.`);
     }
   }
   
