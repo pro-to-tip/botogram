@@ -17,6 +17,19 @@ class Bot {
       callback_query: body => this._callbackQueryHandler(body)
     };
     
+    this._messageTypes = [
+      "text", 
+      "photo", 
+      "document", 
+      "audio", 
+      "sticker", 
+      "video", 
+      "voice", 
+      "contact", 
+      "location", 
+      "venue"
+    ];
+    
     this.getMe()
       .then(data => {
         this.data = data;
@@ -302,8 +315,9 @@ class Bot {
   }
   
   _messageHandler(body) {
-    let length = Object.keys(body.message).length;
-    let type = Object.keys(body.message)[length - 1];
+    let type = this._messageTypes.filter(type => {
+      return body.message[type];
+    })[0];
     
     if (this._emitter.emit(type, body.message)) {
       this._logMessage(body.message);
