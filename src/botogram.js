@@ -37,11 +37,14 @@ class Bot {
       .catch(err => {
         throw new Error(err);
       });
-  }
+      
+    (this.listen = (req, res, next) => {
+      res.end();
+      if (!req.body) throw new Error("Botogram's 'listen' method requires bodyParser.");
   
-  listen(req, res, next) {
-    this._bodyHandler(req.body);
-    next();
+      next();
+      this._bodyHandler(req.body);
+    }).bind(this);  
   }
   
   take(body) {
