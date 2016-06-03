@@ -8,13 +8,12 @@ class Bot {
   constructor(token) {
     this.token = token;
     this.url = `https://api.telegram.org/bot${token}/`;
-    this.commands = {};
     this.data = {};
     this._emitter = new EventEmitter();
     
     this._types = {
-      message: body => this._messageHandler(body),
-      callback_query: body => this._callbackQueryHandler(body)
+      message: this._messageHandler.bind(this),
+      callback_query: this._callbackQueryHandler.bind(this)
     };
     
     this._messageTypes = [
@@ -30,6 +29,10 @@ class Bot {
       "venue"
     ];
     
+    this._messageEntities = {
+      bot_command: this._botCommandEntityHandler.bind(this)
+    };
+    
     this.getMe()
       .then(data => {
         this.data = data;
@@ -40,7 +43,7 @@ class Bot {
       
     (this.listen = (req, res, next) => {
       res.end();
-      if (!req.body) throw new Error("Botogram's 'listen' method requires bodyParser.");
+      if (!req.body) throw new Error("Botogram's 'listen' method requires body-parser. Use npm install --save body-parser.");
   
       next();
       this._bodyHandler(req.body);
@@ -317,29 +320,57 @@ class Bot {
     this._emitter.on(event, callback);    
   }
   
-  _messageHandler(body) {
-    let type = this._messageTypes.filter(type => {
-      return body.message[type];
-    })[0];
-    
-    if (this._emitter.emit(type, body.message)) {
-      this._logMessage(body.message);
+  _emit(type, data) {
+    if (this._emitter.emit(type, data)) {
+      this._logMessage(data);
+      return true;
     } else {
       console.log(`${this.data.username}'s on${type} listener is not defined.`);
+      return false;
     }
   }
   
+  _messageHandler(body) {
+    let message = body.message,
+      type = this._messageTypes.filter(type => {
+        return message[type];
+      })[0];
+    
+    if (message.entities) {
+      for (let entity of message.entities) {
+        if (this._messageEntities[entity.type]) {
+          this._messageEntities[entity.type]({
+            message,
+            offset: entity.offset,
+            length: entity.length
+          });
+           
+          return;
+        }
+      }
+    }
+    
+    this._emit(type, body.message) || this._emit("message", body.message) || this._emit("*", body.message);
+  }
+  
   _callbackQueryHandler(body) {
-    if (this._emitter.emit("callback_query", body.callback_query)) {
-      this._logMessage(body.callback_query);
+    this._emit("callback_query", body.callback_query) || this._emit("*", body.message);
+  }
+  
+  _botCommandEntityHandler(entity) {
+    let command = entity.message.text.substr(entity.offset, entity.length).slice(1);
+    
+    if (this._types[command] || this._messageTypes.indexOf(command) !== -1) {  // defence of reserved events from any user's invocations
+      this._emit("command", entity.message) || this._emit("*", entity.message);
     } else {
-      console.log(`${this.data.username}'s callback_query listener is not defined.`);
+      this._emit(command, entity.message) || this._emit("command", entity.message) || this._emit("*", entity.message);
     }
   }
   
   _logMessage(message) {
-    let length = Object.keys(message).length;
-    let type = Object.keys(message)[length - 1];
+    let type = this._messageTypes.filter(type => {
+      return message[type];
+    })[0];
     
     console.log(`(${new Date().toUTCString()}) => ${this.data.first_name}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): ${message[type]}`);
   }
