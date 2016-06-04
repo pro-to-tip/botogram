@@ -1,5 +1,3 @@
-"use strict";
-
 import request from "axios";
 import {EventEmitter} from "events";
 
@@ -60,7 +58,7 @@ export default class Bot {
     if (this._types[type]) {
       this._types[type](body);
     } else {
-      console.log("Botogram Error. There is no this message handler:", type);
+      console.error("Botogram Error. There is no this message handler:", type);
     }
   }
   

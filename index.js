@@ -1,1 +1,1 @@
-module.exports = require("./lib/botogram.js").default;
+module.exports = require("./lib/botogram.js");
