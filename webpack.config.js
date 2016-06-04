@@ -1,19 +1,18 @@
+var path = require("path");
 
-var config = {
-  entry: __dirname + "/src/botogram.js",
+module.exports = {
+  entry: path.join(__dirname, "/src/botogram.js"),
   output: {
-    path: __dirname + "/lib",
-    filename: "botogram.js"
+    path: path.join(__dirname, "/lib"),
+    filename: "botogram.js",
+    library: true,
+    libraryTarget: "commonjs2"
   },
+  target: "node",
   module: {
     loaders: [
-      {
-        test: /\.js$/, 
-        exclude: /node_modules/, 
-        loader: "babel-loader"
-      }
+      { test: /\.json$/, loader: "json" },
+      { test: /\.js$/, loader: "babel-loader" }
     ]
   }
 };
-
-module.exports = config;

@@ -1,10 +1,10 @@
 "use strict";
 
-const request = require("axios");
-const EventEmitter = require("events").EventEmitter;
+import request from "axios";
+import {EventEmitter} from "events";
 
 
-class Bot {
+export default class Bot {
   constructor(token) {
     this.token = token;
     this.url = `https://api.telegram.org/bot${token}/`;
@@ -375,5 +375,3 @@ class Bot {
     console.log(`(${new Date().toUTCString()}) => ${this.data.first_name}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): ${message[type]}`);
   }
 }
-
-module.exports = Bot;
