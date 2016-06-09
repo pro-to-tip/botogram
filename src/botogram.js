@@ -17,7 +17,7 @@ export default class Bot extends EventEmitter {
     this.token = token;
     this.url = `https://api.telegram.org/bot${token}/`;
     this.data = {};
-    this._events = {
+    this._types = {
       message: this._messageHandler.bind(this),
       callback_query: this._callbackQueryHandler.bind(this)
     };
@@ -55,8 +55,8 @@ export default class Bot extends EventEmitter {
   _bodyHandler(body) {
     let event = Object.keys(body)[1];
 
-    if (this._events[event]) {
-      this._events[event](body);
+    if (this._types[event]) {
+      this._types[event](body);
     } else {
       console.error("Botogram Error. There is no this event handler:", event);
     }
@@ -191,7 +191,7 @@ export default class Bot extends EventEmitter {
 
   downloadFileById(params) {
     params = params || {};
-    if (!params.destination || typeof params.destination !== "string") 
+    if (typeof params.destination !== "string") 
       return Promise.reject(new TypeError("Destination parameter should be passed."));
 
     return new Promise((resolve, reject) => {
@@ -289,13 +289,13 @@ export default class Bot extends EventEmitter {
   }
 
   _callbackQueryHandler(body) {
-    this._emit("callback_query", body.callback_query) || this._emit("*", body.message);
+    this._emit("callback_query", body.callback_query) || this._emit("*", body.callback_query);
   }
 
   _botCommandEntityHandler(entity) {
     let command = entity.message.text.substr(entity.offset, entity.length).slice(1);
 
-    if (this._events[command] || this._messageTypes.indexOf(command) !== -1) {  // defence of reserved events from any user's invocations
+    if (this._types[command] || this._messageTypes.indexOf(command) !== -1) {  // defence of reserved events from any user's invocations
       this._emit("command", entity.message) || this._emit("*", entity.message);
     } else {
       this._emit(command, entity.message) || this._emit("command", entity.message) || this._emit("*", entity.message);
