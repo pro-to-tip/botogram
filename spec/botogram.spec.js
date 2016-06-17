@@ -2,6 +2,7 @@ const fs = require("fs");
 const Bot = require("../");
 const token = process.env.TOKEN;
 const chat_id = process.env.CHAT_ID;
+const hook = process.env.HOOK;
 const bot = new Bot(token);
 
 describe("Bot", () => {  
@@ -108,38 +109,6 @@ describe("Bot", () => {
     });
   });
 
-  describe("sendLocation", () => {
-    it("has to send a location", done => {
-      bot.sendLocation({
-        chat_id,
-        latitude: 55.736386,
-        longitude: 38.017776
-      })
-        .then(res => {
-          expect(res.ok).toBe(true);
-          done();
-        })
-        .catch(done);
-    });
-  });
-
-  describe("sendVenue", () => {
-    it("has to send a venue", done => {
-      bot.sendVenue({
-        chat_id,
-        latitude: 55.744295,
-        longitude: 37.960954,
-        title: "The Bridge",
-        address: "Pochtovaya street"
-      })
-        .then(res => {
-          expect(res.ok).toBe(true);
-          done();
-        })
-        .catch(done);
-    });
-  });
-
   describe("getFile", () => {
     it("has to get a file", done => {
       bot.getFile({
@@ -172,6 +141,19 @@ describe("Bot", () => {
       bot.getChatMember({
         chat_id: chat_id,
         user_id: chat_id
+      })
+        .then(res => {
+          expect(res.ok).toBe(true);
+          done();
+        })
+        .catch(done);
+    });
+  });
+
+  describe("setWebhook", () => {
+    it("has to set a webhook", done => {
+      bot.setWebhook({
+        url: hook
       })
         .then(res => {
           expect(res.ok).toBe(true);

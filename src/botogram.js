@@ -4,7 +4,6 @@ import fileType from "file-type";
 import fs from "fs";
 import path from "path";
 import mime from "mime";
-import url from "url";
 import {isURL} from "validator";
 import stream from "stream";
 
@@ -19,12 +18,16 @@ export default class Bot extends EventEmitter {
     this.data = {};
     this._types = {
       message: this._messageHandler.bind(this),
-      callback_query: this._callbackQueryHandler.bind(this)
+      callback_query: this._callbackQueryHandler.bind(this),
+      inline_query: this._inlineQueryHandler.bind(this),
+      chosen_inline_result: this._chosenInlineResultHandler.bind(this)
     };
 
     this._messageTypes = [
-      "text", "photo", "document", "audio", "sticker",
-      "video", "voice", "contact", "location", "venue"
+      "text", "photo", "document", "audio", "sticker", "video", "voice", "contact", "location", "venue",
+      "new_chat_member", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo",
+      "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id",
+      "migrate_from_chat_id", "pinned_message"
     ];
 
     this._messageEntities = {
@@ -33,8 +36,6 @@ export default class Bot extends EventEmitter {
 
     this.getMe()
       .then(res => {
-        if (!res.ok) throw new Error(res.description);
-
         this.data = res.result;
       })
       .catch(err => { throw err });
@@ -62,10 +63,24 @@ export default class Bot extends EventEmitter {
     }
   }
 
-  _request(method, params) {
+  _request(method, params, opts) {
+    params = params || {};
+    opts = opts || {};
+    let options = {
+      url: this.url + method
+    };
+
+    if (opts.formData) {
+      options.formData = params;
+    } else { 
+      options.headers = { "Content-Type": "application/json" };
+      options.body = JSON.stringify(params);
+    }
+
     return new Promise((resolve, reject) => {
-      request.post({url: this.url + method, formData: params}, (err, res, body) => {
+      request.post(options, (err, res, body) => {
         if (err) return reject(err);
+        if (res.statusCode !== 200) return reject(new Error(body));
 
         resolve(JSON.parse(body));
       });
@@ -94,13 +109,11 @@ export default class Bot extends EventEmitter {
           }
         });
       } else if (isURL(data, {protocols: ["http", "https"]})) {
-        let parsedUrl = url.parse(data);
-
         resolve({
           value: request.get(data),
           options: {
-            filename: path.basename(parsedUrl.path),
-            contentType: mime.lookup(parsedUrl.path)
+            filename: path.basename(data),
+            contentType: mime.lookup(data)
           }
         });
       } else {
@@ -115,17 +128,44 @@ export default class Bot extends EventEmitter {
       this._prepareFormData(type, params[type])
         .then(file => {
           if (file.value instanceof stream.Stream) {
-            file.value.on("response", res => {
-              if (res.statusCode >= 400) reject(new Error(`Server respond status ${res.statusCode}.`))
-            });
-            file.value.on("error", reject);
+            file.value
+              .on("response", res => {
+                if (res.statusCode >= 400) reject(new Error(`Server respond status ${res.statusCode}.`))
+              })
+              .on("error", reject);
           }
 
           params[type] = file;
-          return this._request(`send${type}`, params);
+          return this._request(`send${type}`, params, { formData: true });
         })
         .then(resolve)
         .catch(reject);
+    });
+  }
+
+  setWebhook(params) { 
+    return new Promise((resolve, reject) => {
+      if (params.certificate) {
+        this._prepareFormData("certificate", params.certificate)
+          .then(file => {
+            if (file.value instanceof stream.Stream) {
+              file.value
+                .on("response", res => {
+                  if (res.statusCode >= 400) reject(new Error(`Server respond status ${res.statusCode}.`))
+                })
+                .on("error", reject);
+            }
+
+            params.certificate = file;
+            return this._request(`setWebhook`, params, { formData: true });
+          })
+          .then(resolve)
+          .catch(reject);
+      } else { 
+        this._request(`setWebhook`, params)
+          .then(resolve)
+          .catch(reject);
+      }
     });
   }
 
@@ -192,21 +232,21 @@ export default class Bot extends EventEmitter {
   downloadFileById(params) {
     params = params || {};
     if (typeof params.destination !== "string") 
-      return Promise.reject(new TypeError("Destination parameter should be passed."));
+      return Promise.reject(new TypeError("A destination parameter should be passed."));
 
     return new Promise((resolve, reject) => {
       this.getFile(params)
         .then(res => {
           if (!res.ok) return resolve(res);
           
-          request(`https://api.telegram.org/file/bot${this.token}/${res.result.file_path}`)
-            .pipe(fs.createWriteStream(params.destination + "/" + path.basename(res.result.file_path)))
-            .on("error", reject)
+          request.get(`https://api.telegram.org/file/bot${this.token}/${res.result.file_path}`)
             .on("response", res => {
               if (res.statusCode !== 200) reject(new Error(`Server respond status ${res.statusCode}.`));
 
-              resolve({ok: true});
+              resolve({ ok: true });
             })
+            .on("error", reject)
+            .pipe(fs.createWriteStream(params.destination + "/" + path.basename(res.result.file_path)));
         })
     });
   }
@@ -255,12 +295,16 @@ export default class Bot extends EventEmitter {
     return this._request("editMessageReplyMarkup", params);
   }
 
+  answerInlineQuery(params) { 
+    return this._request("answerInlineQuery", params);
+  }
+
   _emit(type, data) {
     if (this.emit(type, data)) {
-      this._logMessage(data);
+      this._logMessage(data, type);
       return true;
     } else {
-      console.log(`${this.data.username}'s on "${type}" listener is not defined.`);
+      console.log(`Botogram => ${this.data.username}'s on "${type}" listener is not defined.`);
       return false;
     }
   }
@@ -270,17 +314,17 @@ export default class Bot extends EventEmitter {
       type = this._messageTypes.filter(type => {
         return message[type];
       })[0];
+    
+    if (!type) return this._emit("message", body.message) || this._emit("*", body.message);
 
     if (message.entities) {
       for (let entity of message.entities) {
         if (this._messageEntities[entity.type]) {
-          this._messageEntities[entity.type]({
+          return this._messageEntities[entity.type]({
             message,
             offset: entity.offset,
             length: entity.length
           });
-
-          return;
         }
       }
     }
@@ -290,6 +334,10 @@ export default class Bot extends EventEmitter {
 
   _callbackQueryHandler(body) {
     this._emit("callback_query", body.callback_query) || this._emit("*", body.callback_query);
+  }
+
+  _inlineQueryHandler(body) {
+    this._emit("inline_query", body.inline_query) || this._emit("*", body.inline_query);
   }
 
   _botCommandEntityHandler(entity) {
@@ -302,11 +350,11 @@ export default class Bot extends EventEmitter {
     }
   }
 
-  _logMessage(message) {
-    let type = this._messageTypes.filter(type => {
-      return message[type];
-    })[0];
+  _chosenInlineResultHandler(message) { 
+    this._emit("chosen_inline_result", message.chosen_inline_result) || this._emit("*", message.chosen_inline_result);
+  }
 
-    console.log(`Botogram => ${this.data.first_name}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): ${message[type]}`);
+  _logMessage(message, type) {
+    console.log(`Botogram => ${this.data.first_name}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): <${type}> ${(message[type] || message.text || message.data || message.query)}`);
   }
 }
