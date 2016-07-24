@@ -1,9 +1,7 @@
 const fs = require("fs");
 const Bot = require("../");
-const token = process.env.TOKEN;
 const chat_id = process.env.CHAT_ID;
-const hook = process.env.HOOK;
-const bot = new Bot(token);
+const bot = new Bot(process.env.TOKEN);
 
 describe("Bot", () => {  
   describe("getMe", () => {
@@ -136,27 +134,14 @@ describe("Bot", () => {
     });
   });
 
-  describe("getChatMember", () => {
-    it("has to get info about a chat member", done => {
-      bot.getChatMember({
-        chat_id: chat_id,
-        user_id: chat_id
+  describe("alert", () => {
+    it("has to send a message to all specified users", done => {
+      bot.alert({
+        chat_ids: new Array(30).fill(chat_id),
+        text: "alert"
       })
         .then(res => {
-          expect(res.ok).toBe(true);
-          done();
-        })
-        .catch(done);
-    });
-  });
-
-  describe("setWebhook", () => {
-    it("has to set a webhook", done => {
-      bot.setWebhook({
-        url: hook
-      })
-        .then(res => {
-          expect(res.ok).toBe(true);
+          expect(res.ok).toBe(undefined);
           done();
         })
         .catch(done);

@@ -18,6 +18,7 @@ export default class Bot extends EventEmitter {
     this.data = {};
     this._types = {
       message: this._messageHandler.bind(this),
+      edited_message: this._editedMessageHandler.bind(this),
       callback_query: this._callbackQueryHandler.bind(this),
       inline_query: this._inlineQueryHandler.bind(this),
       chosen_inline_result: this._chosenInlineResultHandler.bind(this)
@@ -51,6 +52,43 @@ export default class Bot extends EventEmitter {
 
   take(body) {
     this._bodyHandler(body);
+  }
+
+  alert(params) {
+    params = params || {};
+
+    if (!Array.isArray(params.chat_ids)) return Promise.reject(new TypeError("A chat_ids parameter should be passed."));
+
+    let chat_ids = params.chat_ids;
+    delete params.chat_ids;
+    let requests = [];
+    let i = 0;
+    let length = chat_ids.length;
+
+    return new Promise((resolve, reject) => {
+      let interval = setInterval(() => {
+        for (; i < length; i++) { 
+          params.chat_id = chat_ids[i];
+
+          if (!(i % 29) && i !== 0) {
+            this._request("sendMessage", params)
+              .then(res => requests[i] = res)
+              .catch(err => requests[i] = err);
+            i += 1;
+            break;
+          } else { 
+            this._request("sendMessage", params)
+              .then(res => requests[i] = res)
+              .catch(err => requests[i] = err);
+          }
+  
+          if (i === length - 1) { 
+            clearInterval(interval);
+            resolve(requests);
+          }
+        }
+      }, 10000);
+    });
   }
 
   _bodyHandler(body) {
@@ -315,7 +353,7 @@ export default class Bot extends EventEmitter {
         return message[type];
       })[0];
     
-    if (!type) return this._emit("message", body.message) || this._emit("*", body.message);
+    if (!type) return this._emit("message", message) || this._emit("*", message);
 
     if (message.entities) {
       for (let entity of message.entities) {
@@ -329,7 +367,11 @@ export default class Bot extends EventEmitter {
       }
     }
 
-    this._emit(type, body.message) || this._emit("message", body.message) || this._emit("*", body.message);
+    this._emit(type, message) || this._emit("message", message) || this._emit("*", message);
+  }
+
+  _editedMessageHandler(body) { 
+    this._emit("edited_message", body.edited_message) || this._emit("*", body.edited_message);
   }
 
   _callbackQueryHandler(body) {
