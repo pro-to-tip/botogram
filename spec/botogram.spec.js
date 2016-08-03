@@ -56,7 +56,7 @@ describe("Bot", () => {
   describe("sendDocument", () => {
     it("has to send a document from a buffer", done => {
       fs.readFile(`${__dirname}/github-git-cheat-sheet.pdf`, (err, document) => {
-        if (err) done(err);
+        if (err) return done(err);
 
         bot.sendDocument({
           document,
@@ -137,11 +137,13 @@ describe("Bot", () => {
   describe("alert", () => {
     it("has to send a message to all specified users", done => {
       bot.alert({
-        chat_ids: new Array(30).fill(chat_id),
-        text: "alert"
+        chat_ids: new Array(10).fill(chat_id),
+        text: "alert",
+        bulk: 10,
+        every: 1
       })
         .then(res => {
-          expect(res.ok).toBe(undefined);
+          expect(res.ok).toBe(true);
           done();
         })
         .catch(done);

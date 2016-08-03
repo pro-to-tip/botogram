@@ -16,7 +16,7 @@ export default class Bot extends EventEmitter {
     this.token = token;
     this.url = `https://api.telegram.org/bot${token}/`;
     this.data = {};
-    this._types = {
+    this._eventTypes = {
       message: this._messageHandler.bind(this),
       edited_message: this._editedMessageHandler.bind(this),
       callback_query: this._callbackQueryHandler.bind(this),
@@ -54,56 +54,71 @@ export default class Bot extends EventEmitter {
     this._bodyHandler(body);
   }
 
-  alert(params) {
-    params = params || {};
+  alert(params = {}) {  
+    if (!Array.isArray(params.chat_ids) || !params.chat_ids.length) return Promise.reject({ ok: false, description: "A chat_ids parameter should be passed." });
 
-    if (!Array.isArray(params.chat_ids)) return Promise.reject(new TypeError("A chat_ids parameter should be passed."));
+    let bulk = (+params.bulk || 30) > 30 ? 30 : +params.bulk,
+      ms = ((+params.every || 10) < 1 ? 1 : +params.every) * 1000,
+      chat_ids = params.chat_ids,
+      length = chat_ids.length,
+      requests = [],
+      interval,
+      i = 0,
+      send = (resolve, reject) => {
+        for (let j = 0; j < bulk; j++) {
+          if (chat_ids[i]) { 
+            params.chat_id = chat_ids[i];
 
-    let chat_ids = params.chat_ids;
-    delete params.chat_ids;
-    let requests = [];
-    let i = 0;
-    let length = chat_ids.length;
+            (i => {
+              console.log(`Botogram. Sending alerts ${i + 1} of ${length}...`);
+              this._request("sendMessage", params)
+                .then(res => requests[i] = res)
+                .catch(err => requests[i] = err);
+            })(i);
+            
+            i++;
+          } else {
+            let innerInterval = setInterval(() => { 
+              if (requests.length === length) {
+                clearInterval(innerInterval);
+                let success = requests.filter(req => { 
+                  return req.ok;
+                });
 
-    return new Promise((resolve, reject) => {
-      let interval = setInterval(() => {
-        for (; i < length; i++) { 
-          params.chat_id = chat_ids[i];
+                console.log(`Botogram. ${success.length} of ${length} alerts were successfully sent.`);
+                resolve({ ok: true, results: requests });
+              }
+            }, 1000);
 
-          if (!(i % 29) && i !== 0) {
-            this._request("sendMessage", params)
-              .then(res => requests[i] = res)
-              .catch(err => requests[i] = err);
-            i += 1;
-            break;
-          } else { 
-            this._request("sendMessage", params)
-              .then(res => requests[i] = res)
-              .catch(err => requests[i] = err);
-          }
-  
-          if (i === length - 1) { 
             clearInterval(interval);
-            resolve(requests);
+            break;       
           }
         }
-      }, 10000);
+      }
+    
+    delete params.chat_ids;
+    delete params.bulk;
+    delete params.every;
+
+    return new Promise((resolve, reject) => {
+      send(resolve, reject);
+      interval = setInterval(send.bind(this, resolve, reject), ms);
     });
   }
 
   _bodyHandler(body) {
     let event = Object.keys(body)[1];
 
-    if (this._types[event]) {
-      this._types[event](body);
+    if (!event) return console.error("Botogram Error: Wrong body was given.");
+
+    if (this._eventTypes[event]) {
+      this._eventTypes[event](body);
     } else {
-      console.error("Botogram Error. There is no this event handler:", event);
+      console.error("Botogram Error: There is no this event handler:", event);
     }
   }
 
-  _request(method, params, opts) {
-    params = params || {};
-    opts = opts || {};
+  _request(method, params = {}, opts = {}) {
     let options = {
       url: this.url + method
     };
@@ -118,7 +133,7 @@ export default class Bot extends EventEmitter {
     return new Promise((resolve, reject) => {
       request.post(options, (err, res, body) => {
         if (err) return reject(err);
-        if (res.statusCode !== 200) return reject(new Error(body));
+        if (res.statusCode !== 200) return reject(JSON.parse(body));
 
         resolve(JSON.parse(body));
       });
@@ -129,7 +144,7 @@ export default class Bot extends EventEmitter {
     return new Promise((resolve, reject) => {
       if (Buffer.isBuffer(data)) {
         let file = fileType(data);
-        if (!file) return reject(new Error("Botogram Error. Unsupported file type."));
+        if (!file) return reject({ ok: false, description: "Botogram Error: Unsupported file type." });
 
         resolve({
           value: data,
@@ -168,7 +183,7 @@ export default class Bot extends EventEmitter {
           if (file.value instanceof stream.Stream) {
             file.value
               .on("response", res => {
-                if (res.statusCode >= 400) reject(new Error(`Server respond status ${res.statusCode}.`))
+                if (res.statusCode >= 400) reject({ ok: false, description: `Server respond status ${res.statusCode}.` });
               })
               .on("error", reject);
           }
@@ -189,7 +204,7 @@ export default class Bot extends EventEmitter {
             if (file.value instanceof stream.Stream) {
               file.value
                 .on("response", res => {
-                  if (res.statusCode >= 400) reject(new Error(`Server respond status ${res.statusCode}.`))
+                  if (res.statusCode >= 400) reject({ ok: false, description: `Server respond status ${res.statusCode}.` });
                 })
                 .on("error", reject);
             }
@@ -267,8 +282,7 @@ export default class Bot extends EventEmitter {
     return this._request("getFile", params);
   }
 
-  downloadFileById(params) {
-    params = params || {};
+  downloadFileById(params = {}) {
     if (typeof params.destination !== "string") 
       return Promise.reject(new TypeError("A destination parameter should be passed."));
 
@@ -278,9 +292,9 @@ export default class Bot extends EventEmitter {
           if (!res.ok) return resolve(res);
           
           request.get(`https://api.telegram.org/file/bot${this.token}/${res.result.file_path}`)
-            .on("response", res => {
-              if (res.statusCode !== 200) reject(new Error(`Server respond status ${res.statusCode}.`));
-
+            .on("response", resp => {
+              if (resp.statusCode !== 200) return reject({ ok: false, description: `Server respond status ${resp.statusCode}.` });
+              
               resolve({ ok: true });
             })
             .on("error", reject)
@@ -336,9 +350,9 @@ export default class Bot extends EventEmitter {
   answerInlineQuery(params) { 
     return this._request("answerInlineQuery", params);
   }
-
-  _emit(type, data) {
-    if (this.emit(type, data)) {
+ 
+  _emit(type, data, next) {
+    if (this.emit(type, data, next)) {
       this._logMessage(data, type);
       return true;
     } else {
@@ -353,7 +367,10 @@ export default class Bot extends EventEmitter {
         return message[type];
       })[0];
     
-    if (!type) return this._emit("message", message) || this._emit("*", message);
+    if (!type) {
+      console.error("Botogram Error: Unsupported message type. 'Message' event will be emitted instead.");
+      return this._emit("message", message, this._emit.bind(this, "*", message)) || this._emit("*", message);
+    }
 
     if (message.entities) {
       for (let entity of message.entities) {
@@ -367,36 +384,46 @@ export default class Bot extends EventEmitter {
       }
     }
 
-    this._emit(type, message) || this._emit("message", message) || this._emit("*", message);
+    this._emit(type, message, this._emit.bind(this, "message", message, this._emit.bind(this, "*"))) ||
+      this._emit("message", message, this._emit.bind(this, "*", message)) ||
+      this._emit("*", message);
   }
 
-  _editedMessageHandler(body) { 
-    this._emit("edited_message", body.edited_message) || this._emit("*", body.edited_message);
+  _editedMessageHandler(body) {
+    let message = body.edited_message;
+
+    this._emit("edited_message", message, this._emit.bind(this, "*", message)) || this._emit("*", message);
   }
 
   _callbackQueryHandler(body) {
-    this._emit("callback_query", body.callback_query) || this._emit("*", body.callback_query);
+    let query = body.callback_query;
+
+    this._emit("callback_query", query, this._emit.bind(this, "*", query)) || this._emit("*", query);
   }
 
   _inlineQueryHandler(body) {
-    this._emit("inline_query", body.inline_query) || this._emit("*", body.inline_query);
+    let query = body.inline_query;
+
+    this._emit("inline_query", query, this._emit.bind(this, "*", query)) || this._emit("*", query);
   }
 
   _botCommandEntityHandler(entity) {
-    let command = entity.message.text.substr(entity.offset, entity.length).slice(1);
+    let message = entity.message,
+      command = message.text.substr(entity.offset, entity.length);
 
-    if (this._types[command] || this._messageTypes.indexOf(command) !== -1) {  // defence of reserved events from any user's invocations
-      this._emit("command", entity.message) || this._emit("*", entity.message);
-    } else {
-      this._emit(command, entity.message) || this._emit("command", entity.message) || this._emit("*", entity.message);
-    }
+    this._emit(command, message, this._emit.bind(this, "command", message, this._emit.bind(this, "*", message))) ||
+      this._emit("command", message, this._emit.bind(this, "*", message)) ||
+      this._emit("*", message);
   }
 
-  _chosenInlineResultHandler(message) { 
-    this._emit("chosen_inline_result", message.chosen_inline_result) || this._emit("*", message.chosen_inline_result);
+  _chosenInlineResultHandler(body) {
+    let result = chosen_inline_result;
+
+    this._emit("chosen_inline_result", result, this._emit.bind(this, "*", result)) ||
+      this._emit("*", result);
   }
 
   _logMessage(message, type) {
-    console.log(`Botogram => ${this.data.first_name}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): <${type}> ${(message[type] || message.text || message.data || message.query)}`);
+    console.log(`Botogram => ${this.data.username}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): <${type}> ${((message[type] || message.text || message.data || message.query)).replace(/\n/g, " ")}`);
   }
 }
