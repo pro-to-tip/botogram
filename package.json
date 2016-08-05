@@ -5,14 +5,14 @@
   "main": "index.js",
   "scripts": {
     "build": "babel src --presets babel-preset-es2015 -d lib",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jasmine-node spec"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/drvirtuozov/botogram.git"
   },
   "author": "dr.virtuozov",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/drvirtuozov/botogram/issues"
   },
@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "babel-cli": "^6.9.0",
-    "babel-preset-es2015": "^6.9.0"
+    "babel-preset-es2015": "^6.9.0",
+    "jasmine-node": "^1.14.5"
   }
 }

@@ -33,7 +33,7 @@ export default class Bot {
     
     this.getMe()
       .then(data => {
-        this.data = data;
+        this.data = data.result;
       })
       .catch(err => {
         throw new Error(err);
@@ -62,256 +62,100 @@ export default class Bot {
     }
   }
   
-  getMe() {
-    return new Promise((resolve, reject) => {
-      request(this.url + "getMe")
+  _request(method, params) {
+    return new Promise(resolve => {
+      request(this.url + method, params)
         .then(res => {
-          resolve(res.data.result);
+          resolve(res.data);
         })
         .catch(err => {
           reject(err.data);
         });
     });
+  }
+  
+  getMe() {
+    return this._request("getMe");
   }
   
   sendMessage(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendMessage", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendMessage", params);
   }
   
   forwardMessage(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "forwardMessage", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("forwardMessage", params);
   }
   
   sendPhoto(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendPhoto", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendPhoto", params);
   }
   
   sendAudio(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendAudio", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendAudio", params);
   }
   
   sendDocument(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendDocument", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendDocument", params);
   }
   
   sendSticker(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendSticker", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendSticker", params);
   }
   
   sendVideo(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendVideo", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendVideo", params);
   }
   
   sendVoice(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendVoice", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendVoice", params);
   }
   
   sendLocation(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendLocation", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendLocation", params);
   }
   
   sendVenue(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendVenue", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendVenue", params);
   }
   
   sendContact(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendContact", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendContact", params);
   }
   
   sendChatAction(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "sendChatAction", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("sendChatAction", params);
   }
   
   getUserProfilePhotos(params) {
-    return new Promise((resolve, reject) => {
-      request(this.url + "getUserProfilePhotos", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("getUserProfilePhotos", params);
   }
   
   getFile(params) {
-    return new Promise((resolve, reject) => {
-      request(this.url + "getFile", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("getFile", params);
   }
   
   kickChatMember(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "kickChatMember", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("kickChatMember", params);
   }
   
   unbanChatMember(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "unbanChatMember", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("unbanChatMember", params);
   }
   
   answerCallbackQuery(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "answerCallbackQuery", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("answerCallbackQuery", params);
   }
   
   editMessageText(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "editMessageText", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("editMessageText", params);
   }
   
   editMessageCaption(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "editMessageCaption", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("editMessageCaption", params);
   }
   
   editMessageReplyMarkup(params) {
-    return new Promise((resolve, reject) => {
-      request.post(this.url + "editMessageCaption", params)
-        .then(res => {
-          resolve(res.data);
-        })
-        .catch(err => {
-          reject(err.data);
-        });
-    });
+    return this._request("editMessageReplyMarkup", params);
   }
   
   on(event, callback) {
@@ -323,7 +167,7 @@ export default class Bot {
       this._logMessage(data);
       return true;
     } else {
-      console.log(`${this.data.username}'s on${type} listener is not defined.`);
+      console.log(`${this.data.username}'s on "${type}" listener is not defined.`);
       return false;
     }
   }
