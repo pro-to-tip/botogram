@@ -1,3 +1,5 @@
+"use strict";
+
 const fs = require("fs");
 const Bot = require("../");
 const chat_id = process.env.CHAT_ID;

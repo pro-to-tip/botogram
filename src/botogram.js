@@ -351,13 +351,26 @@ export default class Bot extends EventEmitter {
     return this._request("answerInlineQuery", params);
   }
  
-  _emit(type, data, next) {
-    if (this.emit(type, data, next)) {
+  _emit(event, data, type, next) {
+    if (type.startsWith("/")) type = "command";
+    
+    if (this.emit(event, data, next)) {
       this._logMessage(data, type);
       return true;
     } else {
-      console.log(`Botogram => ${this.data.username}'s on "${type}" listener is not defined.`);
+      console.log(`Botogram => ${this.data.username}'s on "${event}" listener is not defined.`);
       return false;
+    }
+  }
+  
+  _emitByPriority(priority, event, data, type) {
+    if (priority === 1) {
+      this._emit(type, data, type, this._emit.bind(this, event, data, type, this._emit.bind(this, "*", data, type))) ||
+        this._emit(event, data, type, this._emit.bind(this, "*", data, type)) ||
+        this._emit("*", data, type);
+    } else if (priority === 2) {
+      this._emit(event, data, event, this._emit.bind(this, "*", data, event)) || 
+        this._emit("*", data, event);
     }
   }
 
@@ -369,7 +382,7 @@ export default class Bot extends EventEmitter {
     
     if (!type) {
       console.error("Botogram Error: Unsupported message type. 'Message' event will be emitted instead.");
-      return this._emit("message", message, this._emit.bind(this, "*", message)) || this._emit("*", message);
+      return this._emitByPriority(2, "message", message);
     }
 
     if (message.entities) {
@@ -383,47 +396,42 @@ export default class Bot extends EventEmitter {
         }
       }
     }
-
-    this._emit(type, message, this._emit.bind(this, "message", message, this._emit.bind(this, "*"))) ||
-      this._emit("message", message, this._emit.bind(this, "*", message)) ||
-      this._emit("*", message);
+    
+    this._emitByPriority(1, "message", message, type);
   }
 
   _editedMessageHandler(body) {
     let message = body.edited_message;
 
-    this._emit("edited_message", message, this._emit.bind(this, "*", message)) || this._emit("*", message);
+    this._emitByPriority(2, "edited_message", message);
   }
 
   _callbackQueryHandler(body) {
     let query = body.callback_query;
 
-    this._emit("callback_query", query, this._emit.bind(this, "*", query)) || this._emit("*", query);
+    this._emitByPriority(2, "callback_query", query);
   }
 
   _inlineQueryHandler(body) {
     let query = body.inline_query;
-
-    this._emit("inline_query", query, this._emit.bind(this, "*", query)) || this._emit("*", query);
+      
+    this._emitByPriority(2, "inline_query", query);
   }
-
+  
   _botCommandEntityHandler(entity) {
     let message = entity.message,
       command = message.text.substr(entity.offset, entity.length);
-
-    this._emit(command, message, this._emit.bind(this, "command", message, this._emit.bind(this, "*", message))) ||
-      this._emit("command", message, this._emit.bind(this, "*", message)) ||
-      this._emit("*", message);
+      
+    this._emitByPriority(1, "command", message, command);  
   }
 
   _chosenInlineResultHandler(body) {
     let result = body.chosen_inline_result;
 
-    this._emit("chosen_inline_result", result, this._emit.bind(this, "*", result)) ||
-      this._emit("*", result);
+    this._emitByPriority(2, "chosen_inline_result", result);
   }
 
   _logMessage(message, type) {
-    console.log(`Botogram => ${this.data.username}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): <${type}> ${((message[type] || message.text || message.data || message.query)).replace(/\n/g, " ")}`);
+    console.log(`Botogram => ${this.data.username}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): <${type}> ${(((typeof message[type] === "object" ? " " : message[type]) || message.text || message.data || message.query)).replace(/\n/g, " ")}`);
   }
 }

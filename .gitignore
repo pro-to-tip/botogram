@@ -2,5 +2,5 @@
 .vscode
 node_modules
 npm-debug.log
-/src
+/lib
 file_0
