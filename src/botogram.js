@@ -39,7 +39,7 @@ export default class Bot extends EventEmitter {
       .then(res => {
         this.data = res.result;
       })
-      .catch(err => { throw err });
+      .catch(console.error);
 
     (this.listen = (req, res, next) => {
       res.end();
@@ -133,7 +133,13 @@ export default class Bot extends EventEmitter {
     return new Promise((resolve, reject) => {
       request.post(options, (err, res, body) => {
         if (err) return reject(err);
-        if (res.statusCode !== 200) return reject(JSON.parse(body));
+        if (res.statusCode !== 200) {
+          try {
+            return reject(JSON.parse(body));
+          } catch(e) {
+            return reject({ ok: false, description: `Server respond status ${res.statusCode}.`, body });
+          }
+        }
 
         resolve(JSON.parse(body));
       });
@@ -210,12 +216,12 @@ export default class Bot extends EventEmitter {
             }
 
             params.certificate = file;
-            return this._request(`setWebhook`, params, { formData: true });
+            return this._request("setWebhook", params, { formData: true });
           })
           .then(resolve)
           .catch(reject);
       } else { 
-        this._request(`setWebhook`, params)
+        this._request("setWebhook", params)
           .then(resolve)
           .catch(reject);
       }
