@@ -167,7 +167,7 @@ export default class Bot extends EventEmitter {
             contentType: mime.lookup(data)
           }
         });
-      } else if (isURL(data, {protocols: ["http", "https"]})) {
+      } else if (isURL(data, { protocols: ["http", "https"] })) {
         resolve({
           value: request.get(data),
           options: {
@@ -191,7 +191,9 @@ export default class Bot extends EventEmitter {
               .on("response", res => {
                 if (res.statusCode >= 400) reject({ ok: false, description: `Server respond status ${res.statusCode}.` });
               })
-              .on("error", reject);
+              .on("error", err => {
+                reject({ ok: false, description: err.message });
+              });
           }
 
           params[type] = file;
@@ -361,7 +363,7 @@ export default class Bot extends EventEmitter {
     if (type.startsWith("/")) type = "command";
     
     if (this.emit(event, data, next)) {
-      this._logMessage(data, type);
+      this._logEvent(data, type);
       return true;
     } else {
       console.log(`Botogram => ${this.data.username}'s on "${event}" listener is not defined.`);
@@ -437,7 +439,12 @@ export default class Bot extends EventEmitter {
     this._emitByPriority(2, "chosen_inline_result", result);
   }
 
-  _logMessage(message, type) {
-    console.log(`Botogram => ${this.data.username}: [${message.from.username}] ${message.from.first_name} ${message.from.last_name} (${message.from.id}): <${type}> ${(((typeof message[type] === "object" ? " " : message[type]) || message.text || message.data || message.query)).replace(/\n/g, " ")}`);
+  _logEvent(event, type) {
+    let username = event.from.username,
+      first_name = event.from.first_name,
+      last_name = event.from.last_name,
+      id = event.from.id;
+    
+    console.log(`Botogram => ${this.data.username}:${username ? ` [${username}]` : ""} ${first_name + (last_name ? ` ${last_name}` : "")} (${id}): <${type}> ${(((typeof event[type] === "object" ? " " : event[type]) || event.text || event.data || event.query)).replace(/\n/g, " ")}`);
   }
 }
