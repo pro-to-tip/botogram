@@ -132,7 +132,7 @@ export default class Bot extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       request.post(options, (err, res, body) => {
-        if (err) return reject(err);
+        if (err) return reject({ ok: false, description: err.message });
         if (res.statusCode !== 200) {
           try {
             return reject(JSON.parse(body));
@@ -214,7 +214,9 @@ export default class Bot extends EventEmitter {
                 .on("response", res => {
                   if (res.statusCode >= 400) reject({ ok: false, description: `Server respond status ${res.statusCode}.` });
                 })
-                .on("error", reject);
+                .on("error", err => {
+                  reject({ ok: false, description: err.message });
+                });
             }
 
             params.certificate = file;
@@ -305,7 +307,9 @@ export default class Bot extends EventEmitter {
               
               resolve({ ok: true });
             })
-            .on("error", reject)
+            .on("error", err => {
+              reject({ ok: false, description: err.message });
+            })
             .pipe(fs.createWriteStream(params.destination + "/" + path.basename(res.result.file_path)));
         });
     });
