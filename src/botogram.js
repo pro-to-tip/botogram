@@ -71,6 +71,7 @@ export default class Bot extends EventEmitter {
 
             (i => {
               console.log(`Botogram. Sending alerts ${i + 1} of ${length}...`);
+              
               this._request("sendMessage", params)
                 .then(res => requests[i] = res)
                 .catch(err => requests[i] = err);
@@ -81,6 +82,7 @@ export default class Bot extends EventEmitter {
             let innerInterval = setInterval(() => { 
               if (requests.length === length) {
                 clearInterval(innerInterval);
+                
                 let success = requests.filter(req => { 
                   return req.ok;
                 });
@@ -133,6 +135,7 @@ export default class Bot extends EventEmitter {
     return new Promise((resolve, reject) => {
       request.post(options, (err, res, body) => {
         if (err) return reject({ ok: false, description: err.message });
+        
         if (res.statusCode !== 200) {
           try {
             return reject(JSON.parse(body));
@@ -167,7 +170,7 @@ export default class Bot extends EventEmitter {
             contentType: mime.lookup(data)
           }
         });
-      } else if (isURL(data, { protocols: ["http", "https"] })) {
+      } else if (isURL(data, { protocols: ["http", "https"], require_protocol: true })) {
         resolve({
           value: request.get(data),
           options: {
@@ -442,7 +445,7 @@ export default class Bot extends EventEmitter {
 
     this._emitByPriority(2, "chosen_inline_result", result);
   }
-
+  
   _logEvent(event, type) {
     let username = event.from.username,
       first_name = event.from.first_name,

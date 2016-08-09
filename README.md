@@ -38,7 +38,7 @@ bot.setWebhook({
 
 app.listen(process.env.PORT);
 ```
-> Notice that Webhook will only work via HTTPS, so you need to have a SSL-signed url. For more information see [this](https://core.telegram.org/bots/api#setwebhook).
+> Notice that Webhook will only work via HTTPS, so you need to have an SSL-signed url. For more information see [this](https://core.telegram.org/bots/api#setwebhook).
 
 
 # Event Types and Priority:
