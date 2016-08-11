@@ -10,7 +10,8 @@ import stream from "stream";
 
 export default class Bot extends EventEmitter {
   constructor(token) {
-    if (typeof token !== "string") throw new TypeError("You need to pass a bot token into the constructor.");
+    if (typeof token !== "string") 
+      throw new TypeError("You need to pass a bot token into the constructor.");
     
     super();
     this.token = token;
@@ -25,10 +26,10 @@ export default class Bot extends EventEmitter {
     };
 
     this._messageTypes = [
-      "text", "photo", "document", "audio", "sticker", "video", "voice", "contact", "location", "venue",
-      "new_chat_member", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo",
-      "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id",
-      "migrate_from_chat_id", "pinned_message"
+      "text", "photo", "document", "audio", "sticker", "video", "voice", "contact", 
+      "location", "venue", "new_chat_member", "left_chat_member", "new_chat_title", 
+      "new_chat_photo", "delete_chat_photo", "group_chat_created", "supergroup_chat_created", 
+      "channel_chat_created", "migrate_to_chat_id", "migrate_from_chat_id", "pinned_message"
     ];
 
     this._messageEntities = {
@@ -43,7 +44,8 @@ export default class Bot extends EventEmitter {
 
     (this.listen = (req, res, next) => {
       res.end();
-      if (!req.body) throw new Error("Botogram's 'listen' method requires body-parser. Use npm install --save body-parser.");
+      if (!req.body) 
+        throw new Error("Botogram's 'listen' method requires body-parser. Use npm install --save body-parser.");
 
       next();
       this._bodyHandler(req.body);
@@ -55,7 +57,8 @@ export default class Bot extends EventEmitter {
   }
 
   alert(params = {}) {  
-    if (!Array.isArray(params.chat_ids) || !params.chat_ids.length) return Promise.reject({ ok: false, description: "A chat_ids parameter should be passed." });
+    if (!Array.isArray(params.chat_ids) || !params.chat_ids.length) 
+      return Promise.reject({ ok: false, description: "A chat_ids parameter should be passed." });
 
     let bulk = (+params.bulk || 30) > 30 ? 30 : +params.bulk,
       ms = ((+params.every || 10) < 1 ? 1 : +params.every) * 1000,
@@ -127,12 +130,24 @@ export default class Bot extends EventEmitter {
 
     if (opts.formData) {
       options.formData = params;
+      var value = options.formData[opts.formData].value;
     } else { 
       options.headers = { "Content-Type": "application/json" };
       options.body = JSON.stringify(params);
     }
 
     return new Promise((resolve, reject) => {
+      if (value instanceof stream.Stream) {
+        value
+          .on("response", res => {
+            if (res.statusCode !== 200) 
+              return reject({ ok: false, description: `Server responded status ${res.statusCode}.` });
+          })
+          .on("error", err => {
+            reject({ ok: false, description: err.message });
+          });
+      }
+      
       request.post(options, (err, res, body) => {
         if (err) return reject({ ok: false, description: err.message });
         
@@ -140,21 +155,22 @@ export default class Bot extends EventEmitter {
           try {
             return reject(JSON.parse(body));
           } catch(e) {
-            return reject({ ok: false, description: `Server respond status ${res.statusCode}.`, body });
+            return reject({ ok: false, description: `Server responded status ${res.statusCode}.`, body });
           }
         }
-
+  
         resolve(JSON.parse(body));
       });
     });
   }
 
   _prepareFormData(type, data) {
-    return new Promise((resolve, reject) => {
+    return new Promise(resolve => {
       if (Buffer.isBuffer(data)) {
         let file = fileType(data);
-        if (!file) return reject({ ok: false, description: "Botogram Error: Unsupported file type." });
-
+        if (!file) 
+          throw { ok: false, description: "Botogram Error: Unsupported file type. Try to pass a file by another way." };
+  
         resolve({
           value: data,
           options: {
@@ -162,7 +178,7 @@ export default class Bot extends EventEmitter {
             contentType: file.mime
           }
         });
-      } else if (fs.existsSync(data)) {        
+      } else if (fs.existsSync(data)) {
         resolve({
           value: fs.createReadStream(data),
           options: {
@@ -172,7 +188,7 @@ export default class Bot extends EventEmitter {
         });
       } else if (isURL(data, { protocols: ["http", "https"], require_protocol: true })) {
         resolve({
-          value: request.get(data),
+          value: request(data),
           options: {
             filename: path.basename(data),
             contentType: mime.lookup(data)
@@ -182,57 +198,26 @@ export default class Bot extends EventEmitter {
         resolve(data);
       }
     });
-
   }
   
   _sendFile(type, params) {
-    return new Promise((resolve, reject) => {
-      this._prepareFormData(type, params[type])
-        .then(file => {
-          if (file.value instanceof stream.Stream) {
-            file.value
-              .on("response", res => {
-                if (res.statusCode >= 400) reject({ ok: false, description: `Server respond status ${res.statusCode}.` });
-              })
-              .on("error", err => {
-                reject({ ok: false, description: err.message });
-              });
-          }
-
-          params[type] = file;
-          return this._request(`send${type}`, params, { formData: true });
-        })
-        .then(resolve)
-        .catch(reject);
-    });
+    return this._prepareFormData(type, params[type])
+      .then(formData => {
+        params[type] = formData;
+        return this._request(`send${type}`, params, { formData: type });
+      });
   }
 
   setWebhook(params) { 
-    return new Promise((resolve, reject) => {
-      if (params.certificate) {
-        this._prepareFormData("certificate", params.certificate)
-          .then(file => {
-            if (file.value instanceof stream.Stream) {
-              file.value
-                .on("response", res => {
-                  if (res.statusCode >= 400) reject({ ok: false, description: `Server respond status ${res.statusCode}.` });
-                })
-                .on("error", err => {
-                  reject({ ok: false, description: err.message });
-                });
-            }
-
-            params.certificate = file;
-            return this._request("setWebhook", params, { formData: true });
-          })
-          .then(resolve)
-          .catch(reject);
-      } else { 
-        this._request("setWebhook", params)
-          .then(resolve)
-          .catch(reject);
-      }
-    });
+    if (params.certificate) {
+      return this._prepareFormData("certificate", params.certificate)
+        .then(formData => {
+          params.certificate = formData;
+          return this._request("setWebhook", params, { formData: "certificate" });
+        });
+    } else { 
+      return this._request("setWebhook", params);
+    }
   }
 
   getMe() {
@@ -296,25 +281,34 @@ export default class Bot extends EventEmitter {
   }
 
   downloadFileById(params = {}) {
-    if (typeof params.destination !== "string") 
-      return Promise.reject(new TypeError("A destination parameter should be passed."));
-
     return new Promise((resolve, reject) => {
+      if (typeof params.destination !== "string") 
+        throw { ok: false, description: "A destination parameter should be passed." };
+      
       this.getFile(params)
         .then(res => {
-          if (!res.ok) return resolve(res);
+          let file_path = params.destination + "/" + path.basename(res.result.file_path),
+            writable = fs.createWriteStream(file_path)
+              .on("finish", () => {
+                delete res.result.file_id;
+                res.result.file_path = file_path;
+                resolve(res);
+              })
+              .on("error", err => {
+                reject({ ok: false, description: err.message });
+              });
           
-          request.get(`https://api.telegram.org/file/bot${this.token}/${res.result.file_path}`)
-            .on("response", resp => {
-              if (resp.statusCode !== 200) return reject({ ok: false, description: `Server respond status ${resp.statusCode}.` });
-              
-              resolve({ ok: true });
+          request(`https://api.telegram.org/file/bot${this.token}/${res.result.file_path}`)
+            .on("response", res => {
+              if (res.statusCode !== 200) 
+                reject({ ok: false, description: `Server responded status ${res.statusCode}.` });
             })
             .on("error", err => {
               reject({ ok: false, description: err.message });
             })
-            .pipe(fs.createWriteStream(params.destination + "/" + path.basename(res.result.file_path)));
-        });
+            .pipe(writable);
+        })
+        .catch(reject);
     });
   }
 

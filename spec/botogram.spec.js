@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("fs");
+const path = require("path");
 const Bot = require("../");
 const chat_id = process.env.CHAT_ID;
 const bot = new Bot(process.env.TOKEN);
@@ -95,6 +96,18 @@ describe("Bot", () => {
         })
         .catch(done);
     });
+    
+    it("has to get a 404 error", done => {
+      bot.sendDocument({
+        document: "https://services.github.com/kit/downloads/lol.pdf",
+        chat_id
+      })
+        .then(done)
+        .catch(err => {
+          expect(err.ok).toBe(false);
+          done();
+        });
+    });
 
     it("has to send a document from a file id", done => {
       bot.sendDocument({
@@ -131,6 +144,7 @@ describe("Bot", () => {
         .then(res => {
           expect(res.ok).toBe(true);
           done();
+          fs.unlinkSync(__dirname + "/" + path.basename(res.result.file_path));
         })
         .catch(done);
     });
