@@ -38,7 +38,9 @@ bot.setWebhook({
 
 app.listen(process.env.PORT);
 ```
-> Notice that Webhook will only work via HTTPS, so you need to have an SSL-signed url. For more information see [this](https://core.telegram.org/bots/api#setwebhook).
+> Notice that Webhook will only work via HTTPS, so you need to have an SSL-signed url. 
+For more information see [this](https://core.telegram.org/bots/api#setwebhook).
+Example usage with self-signed certificates can be found [here](https://github.com/drvirtuozov/botogram/blob/master/docs/selfsigned.md).
 
 
 # Event Types and Priority:
@@ -120,10 +122,10 @@ Use this method to send a message to all users. Returns promise with an array of
 
 | Parameters | Type   | Required | Description                                               |
 |------------|--------|----------|-----------------------------------------------------------|
-| chat_ids   | Array  | true     | Array of chat ids                                         |
-| text       | String | true     | Text of the message to be sent                            |
-| bulk       | Number | false    | Chat ids quantity per time. Default: 30, Max: 30, Min: 1  |
-| every      | Number | false    | Interval in seconds. Default: 10, Min: 1                  |
+| chat_ids   | Array  | Yes      | Array of chat ids                                         |
+| text       | String | Yes      | Text of the message to be sent                            |
+| bulk       | Number | Optional | Chat ids quantity per time. Default: 30, Max: 30, Min: 1  |
+| every      | Number | Optional | Interval in seconds. Default: 10, Min: 1                  |
 
 # downloadFileById
 
@@ -131,5 +133,5 @@ Use this method to download any files by id.
 
 | Parameters  | Type   | Required | Description                 |
 |-------------|--------|----------|-----------------------------|
-| file_id     | String | true     | File identifier to download |
-| destination | String | true     | File system path            |
+| file_id     | String | Yes      | File identifier to download |
+| destination | String | Yes      | File system path            |

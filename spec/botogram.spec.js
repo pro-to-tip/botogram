@@ -17,6 +17,20 @@ describe("Bot", () => {
         .catch(done);
     });
   });
+  
+  describe("setWebhook", () => {
+    it("has to set a webhook with certificate", done => {
+      bot.setWebhook({
+        url: "https://github.com/drvirtuozov/botogram",
+        certificate: `${__dirname}/cert.pem`
+      })
+        .then(res => {
+          expect(res.ok).toBe(true);
+          done();
+        })
+        .catch(done);
+    });
+  });
 
   describe("sendMessage", () => {
     it("has to send a message", done => {
