@@ -43,7 +43,7 @@ For more information see [this](https://core.telegram.org/bots/api#setwebhook).
 Example usage with self-signed certificates can be found [here](https://github.com/drvirtuozov/botogram/blob/master/docs/selfsigned.md).
 
 
-# Event Types and Priority:
+# Event Types and Priority
 
 |                                  First Priority                                 |    Second Priority   | Third Priority |
 |:-------------------------------------------------------------------------------:|:--------------------:|:--------------:|

@@ -91,7 +91,7 @@ export default class Bot extends EventEmitter {
                 });
 
                 console.log(`Botogram. ${success.length} of ${length} alerts were successfully sent.`);
-                resolve({ ok: true, results: requests });
+                resolve({ ok: true, result: requests });
               }
             }, 1000);
 
@@ -389,6 +389,13 @@ export default class Bot extends EventEmitter {
         return message[type];
       })[0];
     
+    message.echo = text => {
+      return this.sendMessage({
+        chat_id: message.from.id,
+        text
+      });
+    };
+    
     if (!type) {
       console.error("Botogram Error: Unsupported message type. 'Message' event will be emitted instead.");
       return this._emitByPriority(2, "message", message);
@@ -411,18 +418,55 @@ export default class Bot extends EventEmitter {
 
   _editedMessageHandler(body) {
     let message = body.edited_message;
+    
+    message.echo = text => {
+      return this.sendMessage({
+        chat_id: message.from.id,
+        text
+      });
+    };
 
     this._emitByPriority(2, "edited_message", message);
   }
 
   _callbackQueryHandler(body) {
     let query = body.callback_query;
+    
+    query.echo = text => {
+      return this.answerCallbackQuery({
+        callback_query_id: query.id,
+        text
+      });
+    };
 
     this._emitByPriority(2, "callback_query", query);
   }
 
   _inlineQueryHandler(body) {
     let query = body.inline_query;
+    
+    query.echo = results => {
+      if (typeof results === "string") {
+        return this.answerInlineQuery({
+          inline_query_id: query.id,
+          results: [
+            {
+              type: "article",
+              title: results,
+              id: query.id,
+              input_message_content: {
+                message_text: results
+              }
+            }
+          ]
+        });
+      } else {
+        return this.answerInlineQuery({
+          inline_query_id: query.id,
+          results
+        });
+      }
+    };
       
     this._emitByPriority(2, "inline_query", query);
   }
@@ -431,11 +475,25 @@ export default class Bot extends EventEmitter {
     let message = entity.message,
       command = message.text.substr(entity.offset, entity.length);
       
+    message.echo = text => {
+      return this.sendMessage({
+        chat_id: message.from.id,
+        text
+      });
+    };
+      
     this._emitByPriority(1, "command", message, command);  
   }
 
   _chosenInlineResultHandler(body) {
     let result = body.chosen_inline_result;
+    
+    result.echo = text => {
+      return this.sendMessage({
+        chat_id: result.from.id,
+        text
+      });
+    };
 
     this._emitByPriority(2, "chosen_inline_result", result);
   }
