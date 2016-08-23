@@ -17,6 +17,9 @@ export default class Bot extends EventEmitter {
     this.token = token;
     this.url = `https://api.telegram.org/bot${token}/`;
     this.data = {};
+    this._userMilestone = {};
+    this._milestones = {};
+    
     this._eventTypes = {
       message: this._messageHandler.bind(this),
       edited_message: this._editedMessageHandler.bind(this),
@@ -50,6 +53,23 @@ export default class Bot extends EventEmitter {
       next();
       this._bodyHandler(req.body);
     }).bind(this);
+  }
+  
+  milestone(name, callback) {
+    if (name === "source") 
+      throw new Error("Botogram Error: 'source' is a reserved name for the main milestone.");
+    
+    let milestone = new EventEmitter();
+    this._milestones[name] = milestone;
+    callback(milestone);
+  }
+  
+  getUserMilestone(id) {
+    return this._userMilestone[id] || "source";
+  }
+  
+  setUserMilestone(milestone, id) {
+    this._userMilestone[id] = milestone;
   }
 
   take(body) {
@@ -363,11 +383,14 @@ export default class Bot extends EventEmitter {
   _emit(event, data, type, next) {
     if (type.startsWith("/")) type = "command";
     
-    if (this.emit(event, data, next)) {
+    let milestone = this.getUserMilestone(data.from.id),
+      emitter = this._milestones[milestone] || this;
+    
+    if (emitter.emit(event, data, next)) {
       this._logEvent(data, type);
       return true;
     } else {
-      console.log(`Botogram => ${this.data.username}'s on "${event}" listener is not defined.`);
+      console.log(`Botogram => ${this.data.username}'s on "${event}" listener is not defined in '${milestone}' milestone.`);
       return false;
     }
   }
