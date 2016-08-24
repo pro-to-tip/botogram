@@ -1,33 +1,33 @@
 ### Example usage with [Express](https://www.npmjs.com/package/express) and self-signed certificates:
 
 ```javascript
-const https = require("https");
-const fs = require("fs");
-const app = require("express")();
-const bodyParser = require("body-parser");
-const Botogram = require("botogram");
-const bot = new Botogram("<TOKEN>");
+const https = require('https');
+const fs = require('fs');
+const app = require('express')();
+const bodyParser = require('body-parser');
+const Botogram = require('botogram');
+const bot = new Botogram('<TOKEN>');
 
 app.use(bodyParser.json());
 
-app.post("/", bot.listen);
+app.post('/', bot.listen);
 
 bot.setWebhook({
-  url: "https://<YOURIPORDOMAINHERE>:443",
-  certificate: "cert.pem"
+  url: 'https://<YOURIPORDOMAINHERE>:443',
+  certificate: 'cert.pem'
 });
 
-bot.on("*", event => {
+bot.on('*', event => {
   bot.sendMessage({
-    text: "Echo.",
+    text: 'Echo',
     chat_id: event.from.id
   })
 });
 
 const sslOptions = {
-  key: fs.readFileSync("key.key"),
-  cert: fs.readFileSync("cert.pem"),
-  passphrase: "test"
+  key: fs.readFileSync('key.key'),
+  cert: fs.readFileSync('cert.pem'),
+  passphrase: 'test'
 };
 
 https.createServer(sslOptions, app).listen(443);

@@ -401,7 +401,7 @@ export default class Bot extends EventEmitter {
       this._logEvent(data, type);
       return true;
     } else {
-      console.log(`Botogram => ${this.data.username}'s on '${event}' listener is not defined in '${milestone}' milestone.`);
+      console.log(`Botogram => ${this.data.username}'s on "${event}" listener is not defined in "${milestone}" milestone.`);
       return false;
     }
   }
