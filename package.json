@@ -1,6 +1,6 @@
 {
   "name": "botogram",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "description": "An elegant microframework for creation of Webhook-based Telegram Bots",
   "keywords": [
     "telegram",
