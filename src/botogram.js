@@ -91,8 +91,8 @@ export default class Bot extends EventEmitter {
     if (!Array.isArray(params.chat_ids) || !params.chat_ids.length) 
       return Promise.reject({ ok: false, description: 'A chat_ids parameter should be passed.' });
 
-    let bulk = (+params.bulk || 30) > 30 ? 30 : +params.bulk,
-      ms = ((+params.every || 10) < 1 ? 1 : +params.every) * 1000,
+    let bulk = (+params.bulk || 30) >= 30 ? 30 : +params.bulk <= 0 ? 30 : +params.bulk,
+      ms = ((+params.every || 10) < 1 ? 1 : +params.every || 10) * 1000,
       chat_ids = params.chat_ids,
       length = chat_ids.length,
       requests = [],

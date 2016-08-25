@@ -168,9 +168,7 @@ describe("Bot", () => {
     it("has to send a message to all specified users", done => {
       bot.alert({
         chat_ids: new Array(10).fill(chat_id),
-        text: "alert",
-        bulk: 10,
-        every: 1
+        text: "alert"
       })
         .then(res => {
           expect(res.ok).toBe(true);
