@@ -1,10 +1,10 @@
 import request from 'request';
-import {EventEmitter} from 'events';
+import { EventEmitter } from 'events';
 import fileType from 'file-type';
 import fs from 'fs';
 import path from 'path';
 import mime from 'mime';
-import {isURL} from 'validator';
+import { isURL } from 'validator';
 import stream from 'stream';
 
 
@@ -19,6 +19,51 @@ export default class Bot extends EventEmitter {
     this.data = {};
     this._userMilestone = {};
     this._milestones = {};
+    
+    this._alert = {
+      interval: null,
+      resolve: null,
+      reject: null,
+      results: null,
+      reqs: 0,
+      resps: 0,
+      send: (params, i) => {
+        console.log(`Sending alerts ${i + 1} of ${this._alert.results.length}...`);
+        this._alert.reqs++;
+        
+        this._request('sendMessage', params)
+          .then(res => { this._alert.results[i] = res; this._alert.incResps(); })
+          .catch(err => { this._alert.results[i] = err; this._alert.incResps(); });
+      },
+      getSuccessCount: () => { 
+        return this._alert.results.filter(result => { 
+          result = result || {}; 
+          return result.ok;
+        }).length;
+      },
+      setDefaultProps: () => {
+        this._alert.interval = null;
+        this._alert.resolve = null;
+        this._alert.reject = null;
+        this._alert.results = null;
+        this._alert.reqs = 0;
+        this._alert.resps = 0;
+      },
+      incResps: () => {
+        this._alert.resps++;
+        let { interval, reqs, resps, results } = this._alert;
+        
+        if (interval) {
+          if (resps === results.length) 
+            this.emit('_alert_done');
+        } else {
+          if (resps === reqs) {
+            this.emit('_alert_canceled');
+          }
+        }
+      }
+    };
+    
     this.milestones = {
       on: (event, callback) => {
         let milestones = Object.keys(this._milestones);
@@ -55,20 +100,49 @@ export default class Bot extends EventEmitter {
         this.data = res.result;
       })
       .catch(console.error);
-
-    (this.listen = (req, res, next) => {
-      res.end();
-      if (!req.body) 
-        throw new Error('Botogram\'s "listen" method requires body-parser. Use npm install --save body-parser.');
-
-      next();
-      this._bodyHandler(req.body);
-    }).bind(this);
+    
+    this.on('_alert_done', () => {
+      let { getSuccessCount, results, resolve, setDefaultProps } = this._alert,
+        description = `Done! ${getSuccessCount()} of ${results.length} alerts have been successfully sent.`;
+      
+      console.log(description);
+      resolve({ ok: true, description, result: results });
+      setDefaultProps();
+    });
+    
+    this.on('_alert_canceled', () => {
+      let { getSuccessCount, results, reject, setDefaultProps } = this._alert,
+        description = `Canceled. ${getSuccessCount()} of ${results.length} alerts have been successfully sent.`;
+      
+      reject({ 
+        ok: false, 
+        description, 
+        result: results 
+      });
+      
+      console.log(description);
+      setDefaultProps();
+    });
+      
+    this.listen = this.listen.bind(this);
+  }
+  
+  listen(req = {}, res = {}, next) {
+    if (typeof req.body !== 'object' || typeof res.end !== 'function' || typeof next !== 'function') 
+      throw new Error('Botogram\'s "listen" middleware requires body-parser. Use npm install --save body-parser.');
+    
+    res.end();
+    next();
+    this._bodyHandler(req.body);
+  }
+  
+  take(body) {
+    this._bodyHandler(body);
   }
   
   milestone(name, callback) {
     if (name === 'source') 
-      throw new Error('Botogram Error: "source" is a reserved name for the main milestone.');
+      throw new TypeError('"source" is a reserved name for the main milestone.');
     
     let milestone = new EventEmitter();
     this._milestones[name] = milestone;
@@ -83,50 +157,22 @@ export default class Bot extends EventEmitter {
     this._userMilestone[id] = milestone;
   }
 
-  take(body) {
-    this._bodyHandler(body);
-  }
-
   alert(params = {}) {  
     if (!Array.isArray(params.chat_ids) || !params.chat_ids.length) 
-      return Promise.reject({ ok: false, description: 'A chat_ids parameter should be passed.' });
+      return Promise.reject({ ok: false, description: 'A chat_ids parameter must be passed.' });
 
-    let bulk = (+params.bulk || 30) >= 30 ? 30 : +params.bulk <= 0 ? 30 : +params.bulk,
-      ms = ((+params.every || 10) < 1 ? 1 : +params.every || 10) * 1000,
-      chat_ids = params.chat_ids,
-      length = chat_ids.length,
-      requests = [],
-      interval,
+    let { chat_ids, bulk, every } = params,
+      blk = (+bulk || 30) >= 30 ? 30 : +bulk <= 0 ? 30 : +bulk,
+      ms = ((+every || 10) < 1 ? 1 : +every || 10) * 1000,
       i = 0,
-      send = (resolve, reject) => {
-        for (let j = 0; j < bulk; j++) {
+      send = () => {
+        for (let j = 0; j < blk; j++) {
           if (chat_ids[i]) { 
             params.chat_id = chat_ids[i];
-
-            (i => {
-              console.log(`Botogram. Sending alerts ${i + 1} of ${length}...`);
-              
-              this._request('sendMessage', params)
-                .then(res => requests[i] = res)
-                .catch(err => requests[i] = err);
-            })(i);
-            
+            this._alert.send(params, i);
             i++;
           } else {
-            let innerInterval = setInterval(() => { 
-              if (requests.length === length) {
-                clearInterval(innerInterval);
-                
-                let success = requests.filter(req => { 
-                  return req.ok;
-                });
-
-                console.log(`Botogram. ${success.length} of ${length} alerts have been successfully sent.`);
-                resolve({ ok: true, result: requests });
-              }
-            }, 1000);
-
-            clearInterval(interval);
+            clearInterval(this._alert.interval);
             break;       
           }
         }
@@ -137,20 +183,33 @@ export default class Bot extends EventEmitter {
     delete params.every;
 
     return new Promise((resolve, reject) => {
-      send(resolve, reject);
-      interval = setInterval(send.bind(this, resolve, reject), ms);
+      this._alert.resolve = resolve;
+      this._alert.reject = reject;
+      this._alert.results = new Array(chat_ids.length).fill(null);
+      this._alert.interval = setInterval(send, ms);
+      send();
     });
   }
+  
+  cancelAlert() {
+    if (this._alert.interval === null) 
+      return console.error('Alert hasn\'t been started yet.');
+    
+    console.log('Canceling the alert...');
+    clearInterval(this._alert.interval);
+    this._alert.interval = null;
+  }
 
-  _bodyHandler(body) {
+  _bodyHandler(body = {}) {
     let event = Object.keys(body)[1];
 
-    if (!event) return console.error('Botogram Error: Wrong body was given.');
+    if (typeof event !== 'string') 
+      throw new Error('The wrong body was given.');
 
     if (this._eventTypes[event]) {
       this._eventTypes[event](body);
     } else {
-      console.error('Botogram Error: There is no this event handler:', event);
+      console.error('There is no this event handler:', event);
     }
   }
   
@@ -199,8 +258,9 @@ export default class Bot extends EventEmitter {
     return new Promise(resolve => {
       if (Buffer.isBuffer(data)) {
         let file = fileType(data);
+        
         if (!file) 
-          throw { ok: false, description: 'Botogram Error: Unsupported file type. Try to pass a file by another way.' };
+          throw { ok: false, description: 'Unsupported file type. Try to pass a file by another way.' };
   
         resolve({
           value: data,
@@ -314,7 +374,7 @@ export default class Bot extends EventEmitter {
   downloadFileById(params = {}) {
     return new Promise((resolve, reject) => {
       if (typeof params.destination !== 'string') 
-        throw { ok: false, description: 'A destination parameter should be passed.' };
+        throw { ok: false, description: 'A destination parameter must be passed.' };
       
       this.getFile(params)
         .then(res => {
@@ -401,7 +461,7 @@ export default class Bot extends EventEmitter {
       this._logEvent(data, type);
       return true;
     } else {
-      console.log(`Botogram => ${this.data.username}'s on "${event}" listener is not defined in "${milestone}" milestone.`);
+      console.log(`${this.data.username}'s "${event}" listener is not defined in a "${milestone}" milestone.`);
       return false;
     }
   }
@@ -434,7 +494,7 @@ export default class Bot extends EventEmitter {
     };
     
     if (!type) {
-      console.error('Botogram Error: Unsupported message type. "Message" event will be emitted instead.');
+      console.error('Unsupported message type. "Message" event will be emitted instead.');
       return this._emitByPriority(2, 'message', message);
     }
 
@@ -540,6 +600,6 @@ export default class Bot extends EventEmitter {
   _logEvent(event, type) {
     let { username, first_name, last_name, id } = event.from;
     
-    console.log(`Botogram => ${this.data.username}:${username ? ` [${username}]` : ''} ${first_name + (last_name ? ` ${last_name}` : '')} (${id}): <${type}> ${(((typeof event[type] === 'object' ? ' ' : event[type]) || event.text || event.data || event.query)).replace(/\n/g, ' ')}`);
+    console.log(`${this.data.username}:${username ? ` [${username}]` : ''} ${first_name + (last_name ? ` ${last_name}` : '')} (${id}): <${type}> ${(((typeof event[type] === 'object' ? ' ' : event[type]) || event.text || event.data || event.query)).replace(/\n/g, ' ')}`);
   }
 }

@@ -1,14 +1,14 @@
-"use strict";
+'use strict';
 
-const fs = require("fs");
-const path = require("path");
-const Bot = require("../");
+const fs = require('fs');
+const path = require('path');
+const Bot = require('../');
 const chat_id = process.env.CHAT_ID;
 const bot = new Bot(process.env.TOKEN);
 
-describe("Bot", () => {  
-  describe("getMe", () => {
-    it("has to get some bot's data", done => {
+describe('Bot', () => {  
+  describe('getMe', () => {
+    it('has to get some bot\'s data', done => {
       bot.getMe()
         .then(res => {
           expect(res.ok).toBe(true);
@@ -18,10 +18,10 @@ describe("Bot", () => {
     });
   });
   
-  describe("setWebhook", () => {
-    it("has to set a webhook with certificate", done => {
+  describe('setWebhook', () => {
+    it('has to set a webhook with certificate', done => {
       bot.setWebhook({
-        url: "https://github.com/drvirtuozov/botogram",
+        url: 'https://github.com/drvirtuozov/botogram',
         certificate: `${__dirname}/cert.pem`
       })
         .then(res => {
@@ -32,10 +32,10 @@ describe("Bot", () => {
     });
   });
 
-  describe("sendMessage", () => {
-    it("has to send a message", done => {
+  describe('sendMessage', () => {
+    it('has to send a message', done => {
       bot.sendMessage({
-        text: "sendMessage",
+        text: 'sendMessage',
         chat_id
       })
         .then(res => {
@@ -46,10 +46,10 @@ describe("Bot", () => {
     });
   });
 
-  describe("forwardMessage", () => {
-    it("has to forward a message", done => {
+  describe('forwardMessage', () => {
+    it('has to forward a message', done => {
       bot.sendMessage({
-        text: "forwardMessage",
+        text: 'forwardMessage',
         chat_id
       })
         .then(res => {
@@ -70,8 +70,8 @@ describe("Bot", () => {
     });
   });
 
-  describe("sendDocument", () => {
-    it("has to send a document from a buffer", done => {
+  describe('sendDocument', () => {
+    it('has to send a document from a buffer', done => {
       fs.readFile(`${__dirname}/github-git-cheat-sheet.pdf`, (err, document) => {
         if (err) return done(err);
 
@@ -87,7 +87,7 @@ describe("Bot", () => {
       });
     });
 
-    it("has to send a document from a file path", done => {
+    it('has to send a document from a file path', done => {
       bot.sendDocument({
         document: `${__dirname}/github-git-cheat-sheet.pdf`,
         chat_id
@@ -99,9 +99,9 @@ describe("Bot", () => {
         .catch(done);
     });
 
-    it("has to send a document from a url", done => {
+    it('has to send a document from a url', done => {
       bot.sendDocument({
-        document: "https://services.github.com/kit/downloads/github-git-cheat-sheet.pdf",
+        document: 'https://services.github.com/kit/downloads/github-git-cheat-sheet.pdf',
         chat_id
       })
         .then(res => {
@@ -111,9 +111,9 @@ describe("Bot", () => {
         .catch(done);
     });
     
-    it("has to get a 404 error", done => {
+    it('has to get a 404 error', done => {
       bot.sendDocument({
-        document: "https://services.github.com/kit/downloads/lol.pdf",
+        document: 'https://services.github.com/kit/downloads/lol.pdf',
         chat_id
       })
         .then(done)
@@ -123,9 +123,9 @@ describe("Bot", () => {
         });
     });
 
-    it("has to send a document from a file id", done => {
+    it('has to send a document from a file id', done => {
       bot.sendDocument({
-        document: "BQADAgADCgADqMZ2C01OELUb82w5Ag",
+        document: 'BQADAgADCgADqMZ2C01OELUb82w5Ag',
         chat_id
       })
         .then(res => {
@@ -136,10 +136,10 @@ describe("Bot", () => {
     });
   });
 
-  describe("getFile", () => {
-    it("has to get a file", done => {
+  describe('getFile', () => {
+    it('has to get a file', done => {
       bot.getFile({
-        file_id: "BQADAgADCgADqMZ2C01OELUb82w5Ag"
+        file_id: 'BQADAgADCgADqMZ2C01OELUb82w5Ag'
       })
         .then(res => {
           expect(res.ok).toBe(true);
@@ -149,32 +149,32 @@ describe("Bot", () => {
     });
   });
 
-  describe("downloadFileById", () => {
-    it("has to download a file by id", done => {
+  describe('downloadFileById', () => {
+    it('has to download a file by id', done => {
       bot.downloadFileById({
-        file_id: "BQADAgADCgADqMZ2C01OELUb82w5Ag",
+        file_id: 'BQADAgADCgADqMZ2C01OELUb82w5Ag',
         destination: __dirname
       })
         .then(res => {
           expect(res.ok).toBe(true);
           done();
-          fs.unlinkSync(__dirname + "/" + path.basename(res.result.file_path));
+          fs.unlinkSync(__dirname + '/' + path.basename(res.result.file_path));
         })
         .catch(done);
     });
   });
 
-  describe("alert", () => {
-    it("has to send a message to all specified users", done => {
+  describe('alert', () => {
+    it('has to send a message to all specified users', done => {
       bot.alert({
-        chat_ids: new Array(10).fill(chat_id),
-        text: "alert"
+        chat_ids: new Array(50).fill(chat_id),
+        text: 'alert'
       })
         .then(res => {
           expect(res.ok).toBe(true);
           done();
         })
         .catch(done);
-    });
+    }, 20000);
   });
 });
