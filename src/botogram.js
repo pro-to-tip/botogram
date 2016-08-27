@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import mime from 'mime';
 import { isURL } from 'validator';
-import stream from 'stream';
+import { Stream } from 'stream';
 
 
 export default class Bot extends EventEmitter {
@@ -28,7 +28,7 @@ export default class Bot extends EventEmitter {
       reqs: 0,
       resps: 0,
       send: (params, i) => {
-        console.log(`Sending alerts ${i + 1} of ${this._alert.results.length}...`);
+        console.log(`Sending alerts... ${i + 1} of ${this._alert.results.length}`);
         this._alert.reqs++;
         
         this._request('sendMessage', params)
@@ -227,7 +227,7 @@ export default class Bot extends EventEmitter {
     }
 
     return new Promise((resolve, reject) => {
-      if (value instanceof stream.Stream) {
+      if (value instanceof Stream) {
         value
           .on('response', res => {
             if (res.statusCode !== 200) 

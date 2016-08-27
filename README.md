@@ -65,8 +65,8 @@ bot.on('message', (message, next) => {
   next();
 });
 
-bot.on('*', event => {
-  event.echo('A message passed from first to last event priority.');
+bot.on('*', message => {
+  event.echo('A message passed from first to last event priority:', message.text);
 });
 ```
 Every event body has a simple text echo method which responds to a user with the same event type that came (message => message, callback_query => callback_query, etc.).
@@ -108,12 +108,13 @@ Source is a name of the main initial milestone. All the events defined via ```bo
 
 - on
 - take
-- listen ```//middleware```
+- listen ```middleware```
 - milestone
 - milestones.on
 - setUserMilestone
 - getUserMilestone => String
 - alert => Promise
+- cancelAlert
 - downloadFileById => Promise
 
 ### Telegram Supported Methods:
@@ -158,6 +159,8 @@ Use this method to send a message to all users. Returns promise with an array of
 | text       | String | Yes      | Text of the message to be sent                            |
 | bulk       | Number | Optional | Chat ids quantity per time. Default: 30, Max: 30, Min: 1  |
 | every      | Number | Optional | Interval in seconds. Default: 10, Min: 1                  |
+
+Cancels by the ```cancelAlert``` method. If this method was invoked, it rejects a promise in ```alert``` method with an array of results.
 
 # downloadFileById
 
