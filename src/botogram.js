@@ -487,9 +487,7 @@ export default class Bot extends EventEmitter {
       return this.sendMessage({
         chat_id: message.from.id,
         text,
-        reply_markup: {
-          disable_web_page_preview: true
-        }
+        disable_web_page_preview: true
       });
     };
     
@@ -520,9 +518,7 @@ export default class Bot extends EventEmitter {
       return this.sendMessage({
         chat_id: message.from.id,
         text,
-        reply_markup: {
-          disable_web_page_preview: true
-        }
+        disable_web_page_preview: true
       });
     };
 
@@ -572,9 +568,7 @@ export default class Bot extends EventEmitter {
       return this.sendMessage({
         chat_id: message.from.id,
         text,
-        reply_markup: {
-          disable_web_page_preview: true
-        }
+        disable_web_page_preview: true
       });
     };
       
@@ -588,9 +582,7 @@ export default class Bot extends EventEmitter {
       return this.sendMessage({
         chat_id: result.from.id,
         text,
-        reply_markup: {
-          disable_web_page_preview: true
-        }
+        disable_web_page_preview: true
       });
     };
 
