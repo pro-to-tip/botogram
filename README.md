@@ -1,6 +1,3 @@
-# botogram
-An elegant microframework for creation of Webhook-based Telegram Bots
-
 ### Example usage with [Express](https://www.npmjs.com/package/express):
 
 ```javascript

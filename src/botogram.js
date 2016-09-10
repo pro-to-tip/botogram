@@ -1,25 +1,62 @@
 import request from 'request';
 import { EventEmitter } from 'events';
-import fileType from 'file-type';
 import fs from 'fs';
 import path from 'path';
-import mime from 'mime';
-import { isURL } from 'validator';
-import { Stream } from 'stream';
+import { 
+  bodyHandler, messageHandler, editedMessageHandler, callbackQueryHandler,
+  inlineQueryHandler, botCommandEntityHandler, chosenInlineResultHandler 
+} from './handlers';
+import { apiRequest, prepareFormData, sendFile, logEvent } from './utils';
 
 
 export default class Bot extends EventEmitter {
   constructor(token) {
     if (typeof token !== 'string') 
-      throw new TypeError('You need to pass a bot token into the constructor.');
+      throw new TypeError('You must pass a bot token into the constructor.');
     
     super();
     this.token = token;
-    this.url = `https://api.telegram.org/bot${token}/`;
     this.data = {};
     this._userMilestone = {};
     this._milestones = {};
     
+    this.milestones = {
+      on: (event, callback) => {
+        let milestones = Object.keys(this._milestones);
+        
+        for (let milestone of milestones) {
+          this._milestones[milestone].on(event, callback);
+        }
+        
+        this.on(event, callback);
+      }
+    };
+    
+    this._eventTypes = {
+      message: messageHandler.bind(this),
+      edited_message: editedMessageHandler.bind(this),
+      callback_query: callbackQueryHandler.bind(this),
+      inline_query: inlineQueryHandler.bind(this),
+      chosen_inline_result: chosenInlineResultHandler.bind(this)
+    };
+
+    this._messageTypes = [
+      'text', 'photo', 'document', 'audio', 'sticker', 'video', 'voice', 'contact', 
+      'location', 'venue', 'new_chat_member', 'left_chat_member', 'new_chat_title', 
+      'new_chat_photo', 'delete_chat_photo', 'group_chat_created', 'supergroup_chat_created', 
+      'channel_chat_created', 'migrate_to_chat_id', 'migrate_from_chat_id', 'pinned_message'
+    ];
+
+    this._messageEntities = {
+      bot_command: botCommandEntityHandler.bind(this)
+    };
+
+    this.getMe()
+      .then(res => {
+        this.data = res.result;
+      })
+      .catch(console.error);
+      
     this._alert = {
       interval: null,
       resolve: null,
@@ -31,7 +68,7 @@ export default class Bot extends EventEmitter {
         console.log(`Sending alerts... ${i + 1} of ${this._alert.results.length}`);
         this._alert.reqs++;
         
-        this._request('sendMessage', params)
+        apiRequest('sendMessage', { params, token: this.token })
           .then(res => { this._alert.results[i] = res; this._alert.incResps(); })
           .catch(err => { this._alert.results[i] = err; this._alert.incResps(); });
       },
@@ -57,49 +94,11 @@ export default class Bot extends EventEmitter {
           if (resps === results.length) 
             this.emit('_alert_done');
         } else {
-          if (resps === reqs) {
+          if (resps === reqs) 
             this.emit('_alert_canceled');
-          }
         }
       }
     };
-    
-    this.milestones = {
-      on: (event, callback) => {
-        let milestones = Object.keys(this._milestones);
-        
-        for (let milestone of milestones) {
-          this._milestones[milestone].on(event, callback);
-        }
-        
-        this.on(event, callback);
-      }
-    };
-    
-    this._eventTypes = {
-      message: this._messageHandler.bind(this),
-      edited_message: this._editedMessageHandler.bind(this),
-      callback_query: this._callbackQueryHandler.bind(this),
-      inline_query: this._inlineQueryHandler.bind(this),
-      chosen_inline_result: this._chosenInlineResultHandler.bind(this)
-    };
-
-    this._messageTypes = [
-      'text', 'photo', 'document', 'audio', 'sticker', 'video', 'voice', 'contact', 
-      'location', 'venue', 'new_chat_member', 'left_chat_member', 'new_chat_title', 
-      'new_chat_photo', 'delete_chat_photo', 'group_chat_created', 'supergroup_chat_created', 
-      'channel_chat_created', 'migrate_to_chat_id', 'migrate_from_chat_id', 'pinned_message'
-    ];
-
-    this._messageEntities = {
-      bot_command: this._botCommandEntityHandler.bind(this)
-    };
-
-    this.getMe()
-      .then(res => {
-        this.data = res.result;
-      })
-      .catch(console.error);
     
     this.on('_alert_done', () => {
       let { getSuccessCount, results, resolve, setDefaultProps } = this._alert,
@@ -133,11 +132,11 @@ export default class Bot extends EventEmitter {
     
     res.end();
     next();
-    this._bodyHandler(req.body);
+    bodyHandler(req.body);
   }
   
   take(body) {
-    this._bodyHandler(body);
+    bodyHandler(body);
   }
   
   milestone(name, callback) {
@@ -154,6 +153,10 @@ export default class Bot extends EventEmitter {
   }
   
   setUserMilestone(milestone, id) {
+    if (!this._milestones[milestone]) {
+      console.error(`Warning. ${this.data.username} doesn't have a "${milestone}" milestone.`);
+    }
+    
     this._userMilestone[id] = milestone;
   }
 
@@ -200,175 +203,76 @@ export default class Bot extends EventEmitter {
     this._alert.interval = null;
   }
 
-  _bodyHandler(body = {}) {
-    let event = Object.keys(body)[1];
-
-    if (typeof event !== 'string') 
-      throw new Error('The wrong body was given.');
-
-    if (this._eventTypes[event]) {
-      this._eventTypes[event](body);
-    } else {
-      console.error('There is no this event handler:', event);
-    }
-  }
-  
-  _request(method, params = {}, opts = {}) {
-    let options = {
-      url: this.url + method
-    };
-
-    if (opts.formData) {
-      options.formData = params;
-      var value = options.formData[opts.formData].value;
-    } else { 
-      options.headers = { 'Content-Type': 'application/json' };
-      options.body = JSON.stringify(params);
-    }
-
-    return new Promise((resolve, reject) => {
-      if (value instanceof Stream) {
-        value
-          .on('response', res => {
-            if (res.statusCode !== 200) 
-              return reject({ ok: false, description: `Server responded status ${res.statusCode}.` });
-          })
-          .on('error', err => {
-            reject({ ok: false, description: err.message });
-          });
-      }
-      
-      request.post(options, (err, res, body) => {
-        if (err) return reject({ ok: false, description: err.message });
-        
-        if (res.statusCode !== 200) {
-          try {
-            return reject(JSON.parse(body));
-          } catch(e) {
-            return reject({ ok: false, description: `Server responded status ${res.statusCode}.`, body });
-          }
-        }
-  
-        resolve(JSON.parse(body));
-      });
-    });
-  }
-
-  _prepareFormData(type, data) {
-    return new Promise(resolve => {
-      if (Buffer.isBuffer(data)) {
-        let file = fileType(data);
-        
-        if (!file) 
-          throw { ok: false, description: 'Unsupported file type. Try to pass a file by another way.' };
-  
-        resolve({
-          value: data,
-          options: {
-            filename: `${type}.${file.ext}`,
-            contentType: file.mime
-          }
-        });
-      } else if (fs.existsSync(data)) {
-        resolve({
-          value: fs.createReadStream(data),
-          options: {
-            filename: path.basename(data),
-            contentType: mime.lookup(data)
-          }
-        });
-      } else if (isURL(data, { protocols: ['http', 'https'], require_protocol: true })) {
-        resolve({
-          value: request(data),
-          options: {
-            filename: path.basename(data),
-            contentType: mime.lookup(data)
-          }
-        });
-      } else {
-        resolve(data);
-      }
-    });
-  }
-  
-  _sendFile(type, params) {
-    return this._prepareFormData(type, params[type])
-      .then(formData => {
-        params[type] = formData;
-        return this._request(`send${type}`, params, { formData: type });
-      });
-  }
-
   setWebhook(params) { 
     if (params.certificate) {
-      return this._prepareFormData('certificate', params.certificate)
+      return prepareFormData('certificate', params.certificate)
         .then(formData => {
           params.certificate = formData;
-          return this._request('setWebhook', params, { formData: 'certificate' });
+          return apiRequest('setWebhook', { params, token: this.token, formData: 'certificate' });
         });
     } else { 
-      return this._request('setWebhook', params);
+      return apiRequest('setWebhook', { params, token: this.token });
     }
   }
 
   getMe() {
-    return this._request('getMe');
+    return apiRequest('getMe', { token: this.token });
   }
 
   sendMessage(params) {
-    return this._request('sendMessage', params);
+    return apiRequest('sendMessage', { params, token: this.token });
   }
 
   forwardMessage(params) {
-    return this._request('forwardMessage', params);
+    return apiRequest('forwardMessage', { params, token: this.token });
   }
 
   sendPhoto(params) {
-    return this._sendFile('photo', params);
+    return sendFile('photo', { params, token: this.token });
   }
 
   sendAudio(params) {
-    return this._sendFile('audio', params);
+    return sendFile('audio', { params, token: this.token });
   }
 
   sendDocument(params) {
-    return this._sendFile('document', params);
+    return sendFile('document', { params, token: this.token });
   }
 
   sendSticker(params) {
-    return this._sendFile('sticker', params);
+    return sendFile('sticker', { params, token: this.token });
   }
 
   sendVideo(params) {
-    return this._request('sendVideo', params);
+    return sendFile('video', { params, token: this.token });
   }
 
   sendVoice(params) {
-    return this._request('sendVoice', params);
+    return sendFile('voice', { params, token: this.token });
   }
 
   sendLocation(params) {
-    return this._request('sendLocation', params);
+    return apiRequest('sendLocation', { params, token: this.token });
   }
 
   sendVenue(params) {
-    return this._request('sendVenue', params);
+    return apiRequest('sendVenue', { params, token: this.token });
   }
 
   sendContact(params) {
-    return this._request('sendContact', params);
+    return apiRequest('sendContact', { params, token: this.token });
   }
 
   sendChatAction(params) {
-    return this._request('sendChatAction', params);
+    return apiRequest('sendChatAction', { params, token: this.token });
   }
 
   getUserProfilePhotos(params) {
-    return this._request('getUserProfilePhotos', params);
+    return apiRequest('getUserProfilePhotos', { params, token: this.token });
   }
 
   getFile(params) {
-    return this._request('getFile', params);
+    return apiRequest('getFile', { params, token: this.token });
   }
 
   downloadFileById(params = {}) {
@@ -404,51 +308,51 @@ export default class Bot extends EventEmitter {
   }
 
   kickChatMember(params) {
-    return this._request('kickChatMember', params);
+    return apiRequest('kickChatMember', { params, token: this.token });
   }
 
   leaveChat(params) {
-    return this._request('leaveChat', params);
+    return apiRequest('leaveChat', { params, token: this.token });
   }
 
   unbanChatMember(params) {
-    return this._request('unbanChatMember', params);
+    return apiRequest('unbanChatMember', { params, token: this.token });
   }
 
   getChat(params) {
-    return this._request('getChat', params);
+    return apiRequest('getChat', { params, token: this.token });
   }
 
   getChatAdministrators(params) {
-    return this._request('getChatAdministrators', params);
+    return apiRequest('getChatAdministrators', { params, token: this.token });
   }
 
   getChatMembersCount(params) {
-    return this._request('getChatMembersCount', params);
+    return apiRequest('getChatMembersCount', { params, token: this.token });
   }
 
   getChatMember(params) {
-    return this._request('getChatMember', params);
+    return apiRequest('getChatMember', { params, token: this.token });
   }
 
   answerCallbackQuery(params) {
-    return this._request('answerCallbackQuery', params);
+    return apiRequest('answerCallbackQuery', { params, token: this.token });
   }
 
   editMessageText(params) {
-    return this._request('editMessageText', params);
+    return apiRequest('editMessageText', { params, token: this.token });
   }
 
   editMessageCaption(params) {
-    return this._request('editMessageCaption', params);
+    return apiRequest('editMessageCaption', { params, token: this.token });
   }
 
   editMessageReplyMarkup(params) {
-    return this._request('editMessageReplyMarkup', params);
+    return apiRequest('editMessageReplyMarkup', { params, token: this.token });
   }
 
   answerInlineQuery(params) { 
-    return this._request('answerInlineQuery', params);
+    return apiRequest('answerInlineQuery', { params, token: this.token });
   }
  
   _emit(event, data, type, next) {
@@ -458,7 +362,7 @@ export default class Bot extends EventEmitter {
       emitter = this._milestones[milestone] || this;
     
     if (emitter.emit(event, data, next)) {
-      this._logEvent(data, type);
+      logEvent(data, type).bind(this);
       return true;
     } else {
       console.log(`${this.data.username}'s "${event}" listener is not defined in a "${milestone}" milestone.`);
@@ -475,123 +379,5 @@ export default class Bot extends EventEmitter {
       this._emit(event, data, event, this._emit.bind(this, '*', data, event)) || 
         this._emit('*', data, event);
     }
-  }
-
-  _messageHandler(body) {
-    let message = body.message,
-      type = this._messageTypes.filter(type => {
-        return message[type];
-      })[0];
-    
-    message.echo = text => {
-      return this.sendMessage({
-        chat_id: message.from.id,
-        text,
-        disable_web_page_preview: true
-      });
-    };
-    
-    if (!type) {
-      console.error('Unsupported message type. "Message" event will be emitted instead.');
-      return this._emitByPriority(2, 'message', message);
-    }
-
-    if (message.entities) {
-      for (let entity of message.entities) {
-        if (this._messageEntities[entity.type]) {
-          return this._messageEntities[entity.type]({
-            message,
-            offset: entity.offset,
-            length: entity.length
-          });
-        }
-      }
-    }
-    
-    this._emitByPriority(1, 'message', message, type);
-  }
-
-  _editedMessageHandler(body) {
-    let message = body.edited_message;
-    
-    message.echo = text => {
-      return this.sendMessage({
-        chat_id: message.from.id,
-        text,
-        disable_web_page_preview: true
-      });
-    };
-
-    this._emitByPriority(2, 'edited_message', message);
-  }
-
-  _callbackQueryHandler(body) {
-    let query = body.callback_query;
-    
-    query.echo = text => {
-      return this.answerCallbackQuery({
-        callback_query_id: query.id,
-        text
-      });
-    };
-
-    this._emitByPriority(2, 'callback_query', query);
-  }
-
-  _inlineQueryHandler(body) {
-    let query = body.inline_query;
-    
-    query.echo = results => {
-      return this.answerInlineQuery({
-        inline_query_id: query.id,
-        results: [
-          {
-            type: 'article',
-            title: results,
-            id: query.id,
-            input_message_content: {
-              message_text: results
-            }
-          }
-        ]
-      });
-    };
-      
-    this._emitByPriority(2, 'inline_query', query);
-  }
-  
-  _botCommandEntityHandler(entity) {
-    let message = entity.message,
-      command = message.text.substr(entity.offset, entity.length);
-      
-    message.echo = text => {
-      return this.sendMessage({
-        chat_id: message.from.id,
-        text,
-        disable_web_page_preview: true
-      });
-    };
-      
-    this._emitByPriority(1, 'command', message, command);  
-  }
-
-  _chosenInlineResultHandler(body) {
-    let result = body.chosen_inline_result;
-    
-    result.echo = text => {
-      return this.sendMessage({
-        chat_id: result.from.id,
-        text,
-        disable_web_page_preview: true
-      });
-    };
-
-    this._emitByPriority(2, 'chosen_inline_result', result);
-  }
-  
-  _logEvent(event, type) {
-    let { username, first_name, last_name, id } = event.from;
-    
-    console.log(`${this.data.username}:${username ? ` [${username}]` : ''} ${first_name + (last_name ? ` ${last_name}` : '')} (${id}): <${type}> ${(((typeof event[type] === 'object' ? ' ' : event[type]) || event.text || event.data || event.query)).replace(/\n/g, ' ')}`);
   }
 }
