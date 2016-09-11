@@ -89,12 +89,14 @@ export function sendFile(type, options = {}) {
   return prepareFormData(type, options.params[type])
     .then(formData => {
       options.params[type] = formData;
-      return apiRequest(`send${type}`, { params: options.params, token: options.token, formData: type });
+      options.formData = type;
+      return apiRequest(`send${type}`, options);
     });
 }
 
 export function logEvent(event, type) {
-  let { username, first_name, last_name, id } = event.from;
+  let { username, first_name, last_name, id } = event.from,
+    text = `${this.data.username}:${username ? ` [${username}]` : ''} ${first_name + (last_name ? ` ${last_name}` : '')} (${id}): <${type}> ${(((typeof event[type] === 'object' ? ' ' : event[type]) || event.text || event.data || event.query)).replace(/\n/g, ' ')}`;
   
-  console.log(`${this.data.username}:${username ? ` [${username}]` : ''} ${first_name + (last_name ? ` ${last_name}` : '')} (${id}): <${type}> ${(((typeof event[type] === 'object' ? ' ' : event[type]) || event.text || event.data || event.query)).replace(/\n/g, ' ')}`);
+  console.log(text.length > 200 ? `${text.slice(0, 200)}...` : text);
 }

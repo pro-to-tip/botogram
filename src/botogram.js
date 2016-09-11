@@ -132,11 +132,11 @@ export default class Bot extends EventEmitter {
     
     res.end();
     next();
-    bodyHandler(req.body);
+    bodyHandler.call(this, req.body);
   }
   
   take(body) {
-    bodyHandler(body);
+    bodyHandler.call(this, body);
   }
   
   milestone(name, callback) {
@@ -153,7 +153,7 @@ export default class Bot extends EventEmitter {
   }
   
   setUserMilestone(milestone, id) {
-    if (!this._milestones[milestone]) {
+    if (!this._milestones[milestone] && milestone !== 'source') {
       console.error(`Warning. ${this.data.username} doesn't have a "${milestone}" milestone.`);
     }
     
@@ -362,7 +362,7 @@ export default class Bot extends EventEmitter {
       emitter = this._milestones[milestone] || this;
     
     if (emitter.emit(event, data, next)) {
-      logEvent(data, type).bind(this);
+      logEvent.call(this, data, type);
       return true;
     } else {
       console.log(`${this.data.username}'s "${event}" listener is not defined in a "${milestone}" milestone.`);

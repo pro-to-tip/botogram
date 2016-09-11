@@ -121,7 +121,7 @@ Source is a name of the main initial milestone. All the events defined via ```bo
 - forwardMessage(```{ chat_id: Number, from_chat_id: Number, message_id: Number }```) => Promise
 - sendPhoto(```{ chat_id: Number, photo: 'file_path' || 'url' || 'file_id' || Buffer }```) => Promise
 - sendAudio(```{ chat_id: Number, audio: 'file_path' || 'url' || 'file_id' || Buffer }```) => Promise
-- sendDocument(```{ chat_id: Number, document: 'file_pat' || 'url' || 'file_id' || Buffer }```) => Promise
+- sendDocument(```{ chat_id: Number, document: 'file_path' || 'url' || 'file_id' || Buffer }```) => Promise
 - sendSticker(```{ chat_id: Number, sticker: 'file_path' || 'url' || 'file_id' || Buffer }```) => Promise
 - sendVideo(```{ chat_id: Number, video: 'file_path' || 'url' || 'file_id' || Buffer }```) => Promise
 - sendVoice(```{ chat_id: Number, voice: 'file_path' || 'url' || 'file_id' || Buffer }```) => Promise

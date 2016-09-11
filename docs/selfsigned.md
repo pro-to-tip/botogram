@@ -13,7 +13,7 @@ app.use(bodyParser.json());
 app.post('/', bot.listen);
 
 bot.setWebhook({
-  url: 'https://<YOURIPORDOMAINHERE>:443',
+  url: 'https://<YOURIPORDOMAINHERE>:8443',
   certificate: 'cert.pem'
 });
 
@@ -30,7 +30,7 @@ const sslOptions = {
   passphrase: 'test'
 };
 
-https.createServer(sslOptions, app).listen(443);
+https.createServer(sslOptions, app).listen(8443);
 ```
 
-> Make sure that 443 port is open on your computer. If you need to generate your own certificates see [this](https://core.telegram.org/bots/self-signed).
+> Make sure that 8443 port is open on your computer. If you need to generate your own certificates see [this](https://core.telegram.org/bots/self-signed).
